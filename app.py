@@ -181,8 +181,24 @@ def generate_outline(task: Dict) -> Optional[Dict]:
     }}
   }},
   "章详细大纲": {{
-    "1": {{
+    "1-1": {{
       "本章所属卷次": "1",
+      "本章次": "1",
+      "本章标题": "xxx",
+      "本章核心情节梗概": "xxx",
+      "本章关键冲突/爽点": "xxx",
+      "本章人物发展/系统奖励": "xxx"
+    }},
+    "1-2": {{
+      "本章所属卷次": "1",
+      "本章次": "2",
+      "本章标题": "xxx",
+      "本章核心情节梗概": "xxx",
+      "本章关键冲突/爽点": "xxx",
+      "本章人物发展/系统奖励": "xxx"
+    }},
+    "2-1": {{
+      "本章所属卷次": "2",
       "本章次": "1",
       "本章标题": "xxx",
       "本章核心情节梗概": "xxx",
@@ -195,9 +211,11 @@ def generate_outline(task: Dict) -> Optional[Dict]:
 重要：
 1. 根据卷数{task["roll_num"]}和章数{task["chapter_num"]}，生成对应数量的卷和章大纲
 2. 总章数 = 卷数 × 每卷章数 = {int(task["roll_num"]) * int(task["chapter_num"])}章
-3. 章详细大纲的key从"1"开始连续编号到"{int(task["roll_num"]) * int(task["chapter_num"])}"
-4. 人物至少3-5个主要角色
-5. 只返回JSON，不要任何其他内容'''
+3. 章详细大纲的key格式为"卷次-章次"，如"1-1"表示第1卷第1章，"2-3"表示第2卷第3章
+4. 每卷的章次都从1开始编号（不是全局连续编号）
+5. 人物至少3-5个主要角色
+6. 只返回JSON，不要任何其他内容
+'''
 
     system_prompt = "你是一位专业的网络小说策划师，擅长创作热门爆款小说大纲。请严格按照用户要求的JSON格式返回结果。"
     
@@ -223,8 +241,8 @@ def generate_outline(task: Dict) -> Optional[Dict]:
 
 
 def save_outline_to_excel(outline: Dict, novel_dir: str, novel_title: str) -> str:
-    """将大纲保存为Excel文件（多Sheet）"""
-    excel_path = os.path.join(novel_dir, f"{novel_title}.xlsx")
+    """将大纲保存为Excel文件（多Sheet），包含章节进度列"""
+    excel_path = os.path.join(novel_dir, "outline.xlsx")
     
     with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
         for sheet_name, data in outline.items():
@@ -234,6 +252,13 @@ def save_outline_to_excel(outline: Dict, novel_dir: str, novel_title: str) -> st
                 if isinstance(first_value, dict):
                     # 转换为DataFrame（每个key作为一行）
                     df = pd.DataFrame.from_dict(data, orient='index')
+                    
+                    # 对于"章详细大纲"，添加进度列
+                    if sheet_name == "章详细大纲":
+                        if 'chapter_done' not in df.columns:
+                            df['chapter_done'] = 0
+                        if 'summary' not in df.columns:
+                            df['summary'] = ''
                 else:
                     # 单层字典，转为单行
                     df = pd.DataFrame([data])
@@ -256,11 +281,11 @@ def build_chapter_context(outline: Dict, roll_num: int, chapter_num: int, prev_c
     volumes = outline.get("卷详细大纲", {})
     chapters = outline.get("章详细大纲", {})
     
-    # 计算全局章节编号
-    total_chapter_num = str((roll_num - 1) * int(overview.get("小说章数", 1)) + chapter_num)
+    # 章节key格式：卷次-章次
+    chapter_key = f"{roll_num}-{chapter_num}"
     
     # 获取当前章节大纲
-    chapter_outline = chapters.get(total_chapter_num, {})
+    chapter_outline = chapters.get(chapter_key, {})
     volume_outline = volumes.get(str(roll_num), {})
     
     context = f"""【小说基本信息】
@@ -311,12 +336,17 @@ def generate_chapter(outline: Dict, roll_num: int, chapter_num: int,
 2. 严格按照章节大纲的情节推进
 3. 与前文保持连贯（如有前情提要）
 4. 体现设定的文风特色
-5. 章节开头格式：
+5. 不要出现重复的句子，不要出现重复的情节，不要出现重复的人物，不要出现重复的对话
+6. 不要出现明显的逻辑错误，不要出现明显的常识错误，不要出现明显的科学错误
+7. 不要出现错别字，不要出现语法错误，不要出现标点符号错误
+8. 注意格式，不要出现段落混乱，不要出现段落重复，不要出现段落缺失，缺少缩进，缺少换行
+9. 章节开头格式：
    第{roll_num}卷 第{chapter_num}章：{chapter_title}
    
    （正文内容）
 
-请直接输出章节内容，不要有任何额外说明。"""
+请直接输出章节内容，不要有任何额外说明。
+"""
 
     system_prompt = f"你是一位专业的网络小说作家，擅长创作{outline.get('作品概述', {}).get('类型', '')}类型的小说。请按照大纲设定撰写精彩的章节内容，文风要求：{outline.get('作品概述', {}).get('文风', '')}。"
     
@@ -336,24 +366,103 @@ def extract_chapter_summary(content: str, max_len: int = 200) -> str:
 
 
 # ======================== 进度管理（断点续传） ========================
-def load_progress(novel_dir: str) -> Dict:
-    """加载生成进度"""
-    progress_file = os.path.join(novel_dir, ".progress.json")
-    if os.path.exists(progress_file):
-        with open(progress_file, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {"outline_done": False, "chapters_done": [], "prev_chapters": []}
+def update_outline_done(csv_path: str, task_id: int, done: bool = True):
+    """更新 CSV 中的 outline_done 状态"""
+    df = pd.read_csv(csv_path, dtype={'gen_start_time': str, 'gen_end_time': str})
+    df['gen_start_time'] = df['gen_start_time'].astype(str).replace('nan', '')
+    df['gen_end_time'] = df['gen_end_time'].astype(str).replace('nan', '')
+    
+    mask = df['task_id'] == task_id
+    if mask.any():
+        df.loc[mask, 'outline_done'] = 1 if done else 0
+        df.to_csv(csv_path, index=False)
 
 
-def save_progress(novel_dir: str, progress: Dict):
-    """保存生成进度"""
-    progress_file = os.path.join(novel_dir, ".progress.json")
-    with open(progress_file, 'w', encoding='utf-8') as f:
-        json.dump(progress, f, ensure_ascii=False, indent=2)
+def get_outline_done(csv_path: str, task_id: int) -> bool:
+    """从 CSV 获取 outline_done 状态"""
+    df = pd.read_csv(csv_path)
+    mask = df['task_id'] == task_id
+    if mask.any():
+        return int(df.loc[mask, 'outline_done'].iloc[0]) == 1
+    return False
+
+
+def load_chapter_progress_from_excel(excel_path: str) -> Dict:
+    """从 Excel 的"章详细大纲" Sheet 加载章节进度"""
+    progress = {"chapters_done": [], "prev_chapters": []}
+    
+    if not os.path.exists(excel_path):
+        return progress
+    
+    try:
+        df = pd.read_excel(excel_path, sheet_name="章详细大纲", index_col=0)
+        
+        for idx, row in df.iterrows():
+            chapter_done = row.get('chapter_done', 0)
+            if pd.notna(chapter_done) and int(chapter_done) == 1:
+                roll = int(row.get('本章所属卷次', 0))
+                chapter = int(row.get('本章次', 0))
+                progress["chapters_done"].append(f"{roll}-{chapter}")
+                
+                # 加载摘要用于前情提要
+                summary = row.get('summary', '')
+                if pd.notna(summary) and summary:
+                    progress["prev_chapters"].append({
+                        "roll": roll,
+                        "chapter": chapter,
+                        "title": row.get('本章标题', ''),
+                        "summary": str(summary)
+                    })
+    except Exception as e:
+        logger.warning(f"读取 Excel 进度失败: {e}")
+    
+    return progress
+
+
+def save_chapter_progress_to_excel(excel_path: str, roll: int, chapter: int, summary: str):
+    """保存章节进度到 Excel 的"章详细大纲" Sheet"""
+    if not os.path.exists(excel_path):
+        logger.warning(f"Excel 文件不存在: {excel_path}")
+        return
+    
+    try:
+        # 读取所有 Sheet
+        with pd.ExcelFile(excel_path) as xls:
+            all_sheets = {sheet: pd.read_excel(xls, sheet_name=sheet, index_col=0) 
+                         for sheet in xls.sheet_names}
+        
+        # 更新"章详细大纲" Sheet
+        if "章详细大纲" in all_sheets:
+            df = all_sheets["章详细大纲"]
+            
+            # 确保列存在
+            if 'chapter_done' not in df.columns:
+                df['chapter_done'] = 0
+            if 'summary' not in df.columns:
+                df['summary'] = ''
+            
+            # 找到对应章节并更新
+            for idx in df.index:
+                row_roll = df.loc[idx, '本章所属卷次']
+                row_chapter = df.loc[idx, '本章次']
+                if int(row_roll) == roll and int(row_chapter) == chapter:
+                    df.loc[idx, 'chapter_done'] = 1
+                    df.loc[idx, 'summary'] = summary
+                    break
+            
+            all_sheets["章详细大纲"] = df
+        
+        # 重新保存所有 Sheet
+        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+            for sheet_name, df in all_sheets.items():
+                df.to_excel(writer, sheet_name=sheet_name, index=True)
+                
+    except Exception as e:
+        logger.error(f"保存章节进度到 Excel 失败: {e}")
 
 
 # ======================== 主流程 ========================
-def process_single_task(task: Dict, task_id: int) -> bool:
+def process_single_task(task: Dict, task_id: int, csv_path: str) -> bool:
     """处理单个小说任务"""
     logger.info(f"\n{'='*60}")
     logger.info(f"开始处理任务 task_id={task_id}")
@@ -363,14 +472,15 @@ def process_single_task(task: Dict, task_id: int) -> bool:
     temp_dir = os.path.join(NOVELS_DIR, f"_temp_task_{task_id}")
     os.makedirs(temp_dir, exist_ok=True)
     
-    progress = load_progress(temp_dir)
     outline = None
     novel_title = None
     novel_dir = temp_dir
     
-    # Step 1: 生成大纲
+    # Step 1: 生成大纲（从 CSV 读取 outline_done 状态）
     outline_cache = os.path.join(temp_dir, "outline.json")
-    if progress["outline_done"] and os.path.exists(outline_cache):
+    outline_done = get_outline_done(csv_path, task_id)
+    
+    if outline_done and os.path.exists(outline_cache):
         logger.info("检测到已有大纲，跳过生成...")
         with open(outline_cache, 'r', encoding='utf-8') as f:
             outline = json.load(f)
@@ -384,8 +494,8 @@ def process_single_task(task: Dict, task_id: int) -> bool:
         with open(outline_cache, 'w', encoding='utf-8') as f:
             json.dump(outline, f, ensure_ascii=False, indent=2)
         
-        progress["outline_done"] = True
-        save_progress(temp_dir, progress)
+        # 更新 CSV 中的 outline_done 状态
+        update_outline_done(csv_path, task_id, True)
     
     # 获取小说标题并重命名目录
     novel_title = outline.get("作品概述", {}).get("小说标题", f"未命名小说_{task_id}")
@@ -396,41 +506,48 @@ def process_single_task(task: Dict, task_id: int) -> bool:
         if os.path.exists(final_dir):
             # 目录已存在，使用已有目录
             novel_dir = final_dir
-            progress = load_progress(novel_dir)
         else:
             os.rename(temp_dir, final_dir)
             novel_dir = final_dir
     
     logger.info(f"小说标题: {novel_title}")
     
-    # 保存大纲为Excel
-    save_outline_to_excel(outline, novel_dir, novel_title)
+    # Excel 文件路径
+    excel_path = os.path.join(novel_dir, "outline.xlsx")
+    
+    # 保存大纲为Excel（如果不存在）
+    if not os.path.exists(excel_path):
+        save_outline_to_excel(outline, novel_dir, novel_title)
     
     # 创建content目录
     content_dir = os.path.join(novel_dir, "content")
     os.makedirs(content_dir, exist_ok=True)
     
-    # Step 2: 生成章节内容
+    # Step 2: 生成章节内容（从 Excel 读取进度）
     roll_num = int(task["roll_num"])
     chapter_per_roll = int(task["chapter_num"])
     word_num = int(task["word_num"])
     total_chapters = roll_num * chapter_per_roll
     
+    # 从 Excel 加载章节进度
+    progress = load_chapter_progress_from_excel(excel_path)
     prev_chapters = progress.get("prev_chapters", [])
+    chapters_done = progress.get("chapters_done", [])
     
     for r in range(1, roll_num + 1):
         for c in range(1, chapter_per_roll + 1):
             chapter_file = os.path.join(content_dir, f"{r}-{c}.txt")
+            chapter_key = f"{r}-{c}"
             global_chapter = (r - 1) * chapter_per_roll + c
             
-            # 检查是否已生成
-            if chapter_file in progress["chapters_done"] or os.path.exists(chapter_file):
+            # 检查是否已生成（从 Excel 或文件存在）
+            if chapter_key in chapters_done or os.path.exists(chapter_file):
                 logger.info(f"跳过已生成: 第{r}卷 第{c}章")
-                # 加载已有章节的摘要
-                if os.path.exists(chapter_file):
+                # 加载已有章节的摘要用于前情提要
+                if os.path.exists(chapter_file) and chapter_key not in [f"{p.get('roll', 0)}-{p.get('chapter', 0)}" for p in prev_chapters]:
                     with open(chapter_file, 'r', encoding='utf-8') as f:
                         existing_content = f.read()
-                    chapter_outline = outline.get("章详细大纲", {}).get(str(global_chapter), {})
+                    chapter_outline = outline.get("章详细大纲", {}).get(chapter_key, {})
                     prev_chapters.append({
                         "roll": r, "chapter": c,
                         "title": chapter_outline.get("本章标题", ""),
@@ -445,16 +562,19 @@ def process_single_task(task: Dict, task_id: int) -> bool:
                 with open(chapter_file, 'w', encoding='utf-8') as f:
                     f.write(content)
                 
-                # 记录进度
-                progress["chapters_done"].append(chapter_file)
-                chapter_outline = outline.get("章详细大纲", {}).get(str(global_chapter), {})
+                # 提取摘要
+                summary = extract_chapter_summary(content)
+                
+                # 保存进度到 Excel
+                save_chapter_progress_to_excel(excel_path, r, c, summary)
+                
+                # 更新前情提要
+                chapter_outline = outline.get("章详细大纲", {}).get(chapter_key, {})
                 prev_chapters.append({
                     "roll": r, "chapter": c,
                     "title": chapter_outline.get("本章标题", ""),
-                    "summary": extract_chapter_summary(content)
+                    "summary": summary
                 })
-                progress["prev_chapters"] = prev_chapters
-                save_progress(novel_dir, progress)
                 
                 logger.info(f"✅ 已生成: 第{r}卷 第{c}章 ({global_chapter}/{total_chapters})")
             else:
@@ -575,7 +695,7 @@ def main():
         update_task_status(csv_path, task_id, status=1, start_time=start_time)
         
         # 处理任务
-        success = process_single_task(task, task_id)
+        success = process_single_task(task, task_id, csv_path)
         
         # 更新状态
         end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -592,4 +712,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
