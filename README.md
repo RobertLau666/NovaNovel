@@ -60,7 +60,7 @@ python app.py -f tasks.csv       # Specify task file
 ## Output Structure
 ```
 novels/
-└── [novel_title]/
+└── task_[id]/
     ├── outline.xlsx       # Outline (Multiple Sheets, Including Chapter Progress)
     ├── outline.json       # Original outline JSON
     └── content/
@@ -68,6 +68,3 @@ novels/
         ├── 1-2.txt        # Roll1-Chapter2
         └── ...
 ```
-
-## Feature
-Resume from breakpoint: After an unexpected interruption of the program, it can resume from the point of interruption when restarted. Progress storage location

@@ -409,56 +409,133 @@ def check_and_fix_outline(outline: Dict, task: Dict, outline_path: str, novel_di
             
     return outline, updated
 
+# def save_outline_to_excel(outline: Dict, novel_dir: str, novel_title: str) -> str:
+#     """保存Excel，注意类型处理"""
+#     excel_path = os.path.join(novel_dir, "outline.xlsx")
+    
+#     # 尝试保留原有的 Excel 数据（主要是保留已生成的 chapter_done 状态）
+#     # 但如果大纲发生了"修复"（新增了行），我们需要智能合并
+#     old_status = {}
+#     if os.path.exists(excel_path):
+#         try:
+#             old_df = pd.read_excel(excel_path, sheet_name="章详细大纲", index_col=0, dtype=object)
+#             for idx, row in old_df.iterrows():
+#                 if row.get('chapter_done') == 1:
+#                     old_status[idx] = {
+#                         'chapter_done': 1,
+#                         'summary': row.get('summary', '')
+#                     }
+#         except:
+#             pass
+
+#     with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+#         for sheet_name, data in outline.items():
+#             if isinstance(data, dict) and sheet_name == "章详细大纲":
+#                 # 转为DataFrame
+#                 df = pd.DataFrame.from_dict(data, orient='index')
+                
+#                 # 初始化列
+#                 df['chapter_done'] = 0
+#                 df['summary'] = ''
+#                 df['summary'] = df['summary'].astype(object)
+                
+#                 # 恢复旧状态 (只恢复那些在大纲里依然存在的章节)
+#                 for idx in df.index:
+#                     if idx in old_status:
+#                         df.at[idx, 'chapter_done'] = old_status[idx]['chapter_done']
+#                         df.at[idx, 'summary'] = old_status[idx]['summary']
+                
+#                 df.to_excel(writer, sheet_name=sheet_name, index=True)
+#             elif isinstance(data, dict):
+#                  # 处理其他嵌套字典
+#                 first_val = next(iter(data.values()), None)
+#                 if isinstance(first_val, dict):
+#                     df = pd.DataFrame.from_dict(data, orient='index')
+#                 else:
+#                     df = pd.DataFrame([data])
+#                 df.to_excel(writer, sheet_name=sheet_name[:31])
+#             else:
+#                 pd.DataFrame([{"内容": data}]).to_excel(writer, sheet_name=sheet_name[:31])
+    
+#     logger.info(f"Excel大纲已更新: {excel_path}")
+#     return excel_path
+
 def save_outline_to_excel(outline: Dict, novel_dir: str, novel_title: str) -> str:
-    """保存Excel，注意类型处理"""
+    """
+    保存大纲到Excel (智能合并版)
+    修复：防止覆盖已有的进度状态。在保存前，先读取旧Excel中的 chapter_done 和 summary，合并到新数据中。
+    """
     excel_path = os.path.join(novel_dir, "outline.xlsx")
     
-    # 尝试保留原有的 Excel 数据（主要是保留已生成的 chapter_done 状态）
-    # 但如果大纲发生了"修复"（新增了行），我们需要智能合并
-    old_status = {}
+    # === 1. 备份旧进度 ===
+    old_chapter_status = {} # 格式: {'1-1': {'done': 1, 'summary': 'xxx'}}
+    
     if os.path.exists(excel_path):
         try:
+            # 读取旧数据，dtype=object 防止 float 报错
             old_df = pd.read_excel(excel_path, sheet_name="章详细大纲", index_col=0, dtype=object)
             for idx, row in old_df.iterrows():
-                if row.get('chapter_done') == 1:
-                    old_status[idx] = {
+                # 检查完成状态 (兼容数字1和字符串'1')
+                is_done = False
+                try:
+                    val = row.get('chapter_done', 0)
+                    if int(val) == 1:
+                        is_done = True
+                except:
+                    pass
+                
+                # 只有“已完成”且摘要不为空的，才值得备份
+                if is_done:
+                    old_chapter_status[str(idx)] = {
                         'chapter_done': 1,
                         'summary': row.get('summary', '')
                     }
-        except:
-            pass
+            # logger.info(f"已备份 {len(old_chapter_status)} 章的历史进度")
+        except Exception as e:
+            logger.warning(f"读取旧Excel状态时遇到小问题（不影响后续）: {e}")
 
+    # === 2. 写入新数据 ===
     with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
         for sheet_name, data in outline.items():
-            if isinstance(data, dict) and sheet_name == "章详细大纲":
-                # 转为DataFrame
+            
+            # 处理 "章详细大纲"
+            if sheet_name == "章详细大纲" and isinstance(data, dict):
                 df = pd.DataFrame.from_dict(data, orient='index')
                 
-                # 初始化列
-                df['chapter_done'] = 0
-                df['summary'] = ''
+                # 初始化缺失列
+                if 'chapter_done' not in df.columns: df['chapter_done'] = 0
+                if 'summary' not in df.columns: df['summary'] = ''
+                
+                # 强制 summary 为 object 类型，避免 pandas 把它当 float 处理
                 df['summary'] = df['summary'].astype(object)
                 
-                # 恢复旧状态 (只恢复那些在大纲里依然存在的章节)
+                # === 3. 关键回填：将旧进度恢复到新表中 ===
                 for idx in df.index:
-                    if idx in old_status:
-                        df.at[idx, 'chapter_done'] = old_status[idx]['chapter_done']
-                        df.at[idx, 'summary'] = old_status[idx]['summary']
+                    str_idx = str(idx)
+                    if str_idx in old_chapter_status:
+                        # 恢复状态
+                        df.at[idx, 'chapter_done'] = 1
+                        # 恢复摘要 (如果新大纲里没有摘要，或者想保留旧摘要)
+                        old_sum = old_chapter_status[str_idx]['summary']
+                        if pd.notna(old_sum) and str(old_sum).strip():
+                            df.at[idx, 'summary'] = old_sum
                 
                 df.to_excel(writer, sheet_name=sheet_name, index=True)
+                
+            # 处理其他 Sheet (如卷大纲、人物)
             elif isinstance(data, dict):
-                 # 处理其他嵌套字典
                 first_val = next(iter(data.values()), None)
                 if isinstance(first_val, dict):
                     df = pd.DataFrame.from_dict(data, orient='index')
                 else:
                     df = pd.DataFrame([data])
-                df.to_excel(writer, sheet_name=sheet_name[:31])
+                df.to_excel(writer, sheet_name=sheet_name[:31]) # Excel sheet名限制31字符
             else:
                 pd.DataFrame([{"内容": data}]).to_excel(writer, sheet_name=sheet_name[:31])
     
-    logger.info(f"Excel大纲已更新: {excel_path}")
+    logger.info(f"Excel大纲已更新（保留了历史进度）: {excel_path}")
     return excel_path
+
 
 # ======================== 内容生成模块 ========================
 
@@ -642,121 +719,86 @@ def process_single_task(task: Dict, task_id: int, csv_path: str) -> bool:
     logger.info(f"\n{'='*60}")
     logger.info(f"开始处理任务 task_id={task_id}")
     
-    # 1. 路径锁定 (强制使用 task_{id} 作为目录名，方便断点续传)
     novel_dir = os.path.join(NOVELS_DIR, f"task_{task_id}")
     os.makedirs(novel_dir, exist_ok=True)
-    logger.info(f"工作目录已锁定: {novel_dir}")
+    logger.info(f"工作目录: {novel_dir}")
 
-    # 2. 大纲加载/新建
+    # 1. 加载大纲
     outline_path = os.path.join(novel_dir, "outline.json")
     outline = None
-    
     if os.path.exists(outline_path):
-        logger.info("检测到本地 outline.json，正在加载...")
         try:
-            with open(outline_path, 'r', encoding='utf-8') as f: 
-                outline = json.load(f)
-        except Exception as e:
-            logger.error(f"大纲文件损坏，正在尝试重新生成: {e}")
-            outline = None
+            with open(outline_path, 'r', encoding='utf-8') as f: outline = json.load(f)
+        except: pass
             
     if not outline:
-        logger.info("准备生成新的宏观设定...")
+        logger.info("生成新宏观设定...")
         outline = generate_global_settings(task)
-        if not outline: 
-            return False
+        if not outline: return False
     
-    # 3. 【大纲自检与修复】(自动补全缺失的卷，并即时保存)
-    # 传入 outline_path 和 novel_dir 是为了在补全过程中就能实时写入硬盘
+    # 2. 补全大纲 (调用上面修复过的 save_outline_to_excel，不用担心覆盖了)
     outline, was_repaired = check_and_fix_outline(outline, task, outline_path, novel_dir)
     
-    # 再次保存以防万一
+    # 确保保存最新JSON
     with open(outline_path, 'w', encoding='utf-8') as f:
         json.dump(outline, f, ensure_ascii=False, indent=2)
-    
-    # 获取书名
+
     novel_title = outline.get("作品概述", {}).get("小说标题", f"Task_{task_id}")
-    logger.info(f"当前小说标题: {novel_title}")
-    
-    # 4. 准备 Excel
     excel_path = os.path.join(novel_dir, "outline.xlsx")
-    # 如果修复了大纲(was_repaired=True) 或者 Excel不存在，都需要刷新Excel
-    if was_repaired or not os.path.exists(excel_path):
+    
+    # 如果没Excel，生成一个；如果有，check_and_fix_outline 已经在内部更新过了
+    if not os.path.exists(excel_path):
         save_outline_to_excel(outline, novel_dir, novel_title)
         
     content_dir = os.path.join(novel_dir, "content")
     os.makedirs(content_dir, exist_ok=True)
     
-    # 5. 准备生成正文
+    # 3. 准备生成
     progress = load_progress(excel_path)
-    done_set = progress["done_set"]      # 集合: {"1-1", "1-2"...}
-    prev_chapters = progress["prev_chapters"] # 列表: [{"roll":1,"chapter":1,"summary":"..."}, ...]
+    done_set = progress["done_set"]
+    prev_chapters = progress["prev_chapters"]
     
-    roll_num = int(task["roll_num"])
-    chap_num = int(task["chapter_num"])
-    total_chapters = roll_num * chap_num
+    roll_num, chap_num = int(task["roll_num"]), int(task["chapter_num"])
+    chapter_outlines = outline.get("章详细大纲", {}) # 提前获取
     
-    # 6. 正文生成循环
     for r in range(1, roll_num + 1):
         for c in range(1, chap_num + 1):
             key = f"{r}-{c}"
             txt_path = os.path.join(content_dir, f"{r}-{c}.txt")
             
-            # --- 跳过逻辑 ---
-            # 只有 Excel 里标记为“已完成(1)”才跳过
+            # === 保护逻辑：如果JSON里没有这一章的大纲，绝对不生成 ===
+            if key not in chapter_outlines:
+                logger.error(f"❌ 大纲缺失: {key} (JSON中未找到该章设定)，跳过生成TXT")
+                continue # 直接跳过
+            
+            # === 跳过逻辑 ===
             if key in done_set:
-                # 检查是否需要补录摘要到内存(用于后续章节的上下文)
-                # 查找内存里是否已经有这一章的摘要
-                current_chap_context = next((item for item in prev_chapters if str(item["roll"]) == str(r) and str(item["chapter"]) == str(c)), None)
+                # 尝试补录上下文摘要
+                has_context = any(str(p['roll'])==str(r) and str(p['chapter'])==str(c) for p in prev_chapters)
+                if not has_context and os.path.exists(txt_path):
+                    try:
+                        with open(txt_path, 'r', encoding='utf-8') as f: 
+                            s = f.read()[-500:] # 简单截取摘要
+                        prev_chapters.append({"roll":r, "chapter":c, "summary":s})
+                    except: pass
                 
-                if not current_chap_context:
-                    # 内存里没有，但Excel说做完了，尝试读取txt文件补录摘要
-                    if os.path.exists(txt_path):
-                        try:
-                            with open(txt_path, 'r', encoding='utf-8') as f: 
-                                content_text = f.read()
-                            # 简单的摘要生成，不浪费API，直接取末尾，或者调用API生成
-                            # 这里为了省钱，如果文件很大，可以仅截取。
-                            # 如果想要高质量续写，建议调用 generate_chapter_summary(content_text)
-                            # 这里默认使用截取策略，为了速度
-                            s = content_text[-500:] 
-                            # 如果需要更精准，可以取消下面注释开启API生成摘要:
-                            # s = generate_chapter_summary(content_text, r, c)
-                            
-                            prev_chapters.append({"roll":r, "chapter":c, "summary":s})
-                        except Exception as e:
-                            logger.warning(f"补录摘要失败 {key}: {e}")
-                    else:
-                        # Excel标记完成但文件不存在，视为未完成，不跳过
-                        pass
-                
-                logger.info(f"跳过已完成: 第{r}卷 第{c}章")
+                logger.info(f"跳过已完成: {key}")
                 continue
             
-            # --- 生成逻辑 ---
-            # 如果是刚补全的大纲，Key "2-1" 已经在 outline 变量里了，这里能正常取到
+            # === 生成逻辑 ===
             content, summary = generate_chapter(outline, r, c, prev_chapters, int(task["word_num"]))
             
             if content:
-                # 1. 写入正文
-                with open(txt_path, 'w', encoding='utf-8') as f: 
-                    f.write(content)
-                
-                # 2. 写入进度到 Excel
+                with open(txt_path, 'w', encoding='utf-8') as f: f.write(content)
                 save_progress(excel_path, r, c, summary)
-                
-                # 3. 更新内存状态
                 done_set.add(key)
                 prev_chapters.append({"roll":r, "chapter":c, "summary":summary})
-                
-                logger.info(f"✅ 已生成: 第{r}卷 第{c}章")
-                
-                # 休息一下，避免API超频
+                logger.info(f"✅ 已生成: {key}")
                 time.sleep(2)
             else:
-                logger.error(f"❌ 生成失败: 第{r}卷 第{c}章")
+                logger.error(f"❌ 生成失败: {key}")
                 
-    logger.info(f"🎉 任务 task_{task_id} 全部流程结束。")
+    logger.info(f"任务结束: {task_id}")
     return True
 
 
