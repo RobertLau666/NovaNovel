@@ -39,19 +39,19 @@ pip install -r requirements.txt
 
 ## 运行
 ```bash
-python main.py
+python app.py
 ```
 
 ## 命令参数
 
 ```bash
-python main.py                    # 处理所有任务
-python main.py -i 1               # 只处理 task_id=1 的任务
-python main.py -i 1,3,6           # 处理 task_id=1,3,6 的任务
-python main.py -i 3-6             # 处理 task_id=3,4,5,6 的任务
-python main.py -i 1,3-5,8         # 混合格式: task_id=1,3,4,5,8
-python main.py --api-key sk-xxx   # 指定 API Key
-python main.py -f tasks.csv       # 指定任务文件
+python app.py                    # 处理所有任务
+python app.py -i 1               # 只处理 task_id=1 的任务
+python app.py -i 1,3,6           # 处理 task_id=1,3,6 的任务
+python app.py -i 3-6             # 处理 task_id=3,4,5,6 的任务
+python app.py -i 1,3-5,8         # 混合格式: task_id=1,3,4,5,8
+python app.py --api-key sk-xxx   # 指定 API Key
+python app.py -f tasks.csv       # 指定任务文件
 ```
 
 ## 输出结构
