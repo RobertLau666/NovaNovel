@@ -321,6 +321,32 @@ def build_chapter_context(outline: Dict, roll_num: int, chapter_num: int, prev_c
     
     return context, chapter_outline.get("本章标题", f"第{chapter_num}章")
 
+# 1. 新增一个后处理函数
+def post_process_content(content: str, roll: int, chapter: int, title: str) -> str:
+    """对AI生成的内容进行格式化清洗"""
+    # 移除可能的 Markdown 代码块标记
+    content = re.sub(r'^```.*?\n', '', content, flags=re.MULTILINE)
+    content = re.sub(r'```$', '', content, flags=re.MULTILINE)
+    
+    lines = content.split('\n')
+    processed_lines = []
+    
+    # 构建标准标题
+    full_title = f"第{roll}卷 第{chapter}章：{title}"
+    processed_lines.append(full_title)
+    processed_lines.append("") # 标题后空一行
+    
+    for line in lines:
+        line = line.strip()
+        # 跳过空行、跳过AI可能重复输出的标题
+        if not line or line == full_title or line in title:
+            continue
+            
+        # 核心：给正文每一段强制加上全角缩进
+        processed_lines.append(f"\u3000\u3000{line}")
+        processed_lines.append("") # 段落之间空一行，方便手机阅读
+        
+    return "\n".join(processed_lines)
 
 def generate_chapter(outline: Dict, roll_num: int, chapter_num: int, 
                      prev_chapters: list, word_num: int) -> Optional[str]:
@@ -329,18 +355,29 @@ def generate_chapter(outline: Dict, roll_num: int, chapter_num: int,
     
     prompt = f"""{context}
 
-请根据以上设定和大纲，撰写第{roll_num}卷第{chapter_num}章的完整内容。
+请你扮演一位白金级小说作家，根据以上设定和大纲，撰写第{roll_num}卷第{chapter_num}章的完整内容。
 
-要求：
-1. 字数约{word_num}字左右
-2. 严格按照章节大纲的情节推进
-3. 与前文保持连贯（如有前情提要）
-4. 体现设定的文风特色
-5. 不要出现重复的句子，不要出现重复的情节，不要出现重复的人物，不要出现重复的对话
-6. 不要出现明显的逻辑错误，不要出现明显的常识错误，不要出现明显的科学错误
-7. 不要出现错别字，不要出现语法错误，不要出现标点符号错误
-8. 注意格式，不要出现段落混乱，不要出现段落重复，不要出现段落缺失，缺少缩进，缺少换行
-9. 章节开头格式：
+【写作高阶要求】
+1. **沉浸式描写**：不要只写“他打了一拳”，要写拳风的呼啸、周围空气的扭曲、围观者的惊骇表情。
+2. **强画面感**：多用动词和名词，少用形容词。不要写“他很生气”，要写“他捏碎了手中的茶杯，滚烫的茶水顺着指缝流下，他却浑然不觉”。
+3. **拒绝流水账**：严禁出现“经过一番苦战”、“几天后”这种省略句。必须将过程细致地通过动作拆解呈现出来。
+4. **对话自然**：反派不要无脑嘲讽，要有自己的逻辑；主角说话要符合人设。
+5. **节奏把控**：打斗场景要短句短段，营造紧迫感；情感场景要细腻铺陈。
+6. **环境渲染**：开篇需通过环境描写（光影、声音、气味）烘托氛围。在对话和动作中穿插环境描写（风声、光影、气味），让场景“活”起来。
+
+其他要求：
+1. 字数约{word_num}字左右。
+2. 严格按照章节大纲的情节推进。
+3. 与前文保持连贯（如有前情提要）。
+4. 体现设定的文风特色。
+5. 保持词汇的丰富性，在描述相似场景时使用全新的比喻和修辞。
+6. 确保因果关系严密，人物行为必须符合其动机和当前处境。
+7. 确保逻辑连贯，人物性格符合设定。
+8. 不要出现错别字，语法错误，标点符号错误。
+9. 注意格式，不要出现段落混乱，段落重复，段落缺失。
+10. 段落要有缩进，段首空两格（全角空格）。
+11. 直接输出正文，不要标题，不要前言，不要“好的”之类的废话。 
+12. 章节开头格式：
    第{roll_num}卷 第{chapter_num}章：{chapter_title}
    
    （正文内容）
@@ -351,10 +388,10 @@ def generate_chapter(outline: Dict, roll_num: int, chapter_num: int,
     system_prompt = f"你是一位专业的网络小说作家，擅长创作{outline.get('作品概述', {}).get('类型', '')}类型的小说。请按照大纲设定撰写精彩的章节内容，文风要求：{outline.get('作品概述', {}).get('文风', '')}。"
     
     logger.info(f"正在生成: 第{roll_num}卷 第{chapter_num}章...")
-    content = call_deepseek(prompt, system_prompt, temperature=0.85)
-    
-    return content
-
+    raw_content = call_deepseek(prompt, system_prompt, temperature=0.85)
+    if raw_content:
+        return post_process_content(raw_content, roll_num, chapter_num, chapter_title)
+    return None
 
 def extract_chapter_summary(content: str, max_len: int = 200) -> str:
     """提取章节摘要（用于下一章的前情提要）"""
