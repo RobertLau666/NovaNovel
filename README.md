@@ -1,12 +1,13 @@
-# AI 小说自动批量生成系统
+# AINovel
 
-基于 DeepSeek API 的小说自动生成工具，支持批量任务、断点续传。
+基于 DeepSeek API 的小说自动批量生成系统，支持批量任务、断点续传。
 
 ## 快速开始
 
 ```bash
 # 1. 安装依赖
-git clone 
+git clone https://github.com/RobertLau666/AINovel.git
+cd AINovel
 
 conda create -n ainovel python=3.12
 conda activate ainovel
