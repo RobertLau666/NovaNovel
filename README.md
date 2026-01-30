@@ -6,6 +6,11 @@
 
 ```bash
 # 1. 安装依赖
+git clone 
+
+conda create -n ainovel python=3.12
+conda activate ainovel
+
 pip install -r requirements.txt
 
 # 2. 配置 API Key
