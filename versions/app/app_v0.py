@@ -313,12 +313,21 @@ def build_chapter_context(outline: Dict, roll_num: int, chapter_num: int, prev_c
 人物发展：{chapter_outline.get("本章人物发展/系统奖励", "")}
 """
 
-    # 添加前几章的摘要（最近2章）
-    if prev_chapters:
-        context += "\n【前情提要】\n"
-        for prev in prev_chapters[-2:]:
-            context += f"第{prev['roll']}卷第{prev['chapter']}章《{prev['title']}》：{prev['summary']}\n"
+    # # 添加前几章的摘要（最近2章）
+    # if prev_chapters:
+    #     context += "\n【前情提要】\n"
+    #     for prev in prev_chapters[-2:]:
+    #         context += f"第{prev['roll']}卷第{prev['chapter']}章《{prev['title']}》：{prev['summary']}\n"
     
+    # 修改：上下文包含最近 4 章的摘要，不仅是 2 章
+    # 这样能保证短期的剧情连贯性更强
+    if prev_chapters:
+        context += "\n【前情提要（最近剧情回顾）】\n"
+        # 获取最后 4 个章节的摘要
+        recent_summaries = prev_chapters[-4:]
+        for prev in recent_summaries:
+            context += f"Draft-第{prev['roll']}卷第{prev['chapter']}章：{prev['summary']}\n"
+
     return context, chapter_outline.get("本章标题", f"第{chapter_num}章")
 
 # 1. 新增一个后处理函数
@@ -393,14 +402,46 @@ def generate_chapter(outline: Dict, roll_num: int, chapter_num: int,
         return post_process_content(raw_content, roll_num, chapter_num, chapter_title)
     return None
 
-def extract_chapter_summary(content: str, max_len: int = 200) -> str:
-    """提取章节摘要（用于下一章的前情提要）"""
-    # 取最后几段作为摘要
-    lines = [l.strip() for l in content.split('\n') if l.strip()]
-    summary_lines = lines[-3:] if len(lines) > 3 else lines
-    summary = ' '.join(summary_lines)
-    return summary[:max_len] + "..." if len(summary) > max_len else summary
+# def extract_chapter_summary(content: str, max_len: int = 200) -> str:
+#     """提取章节摘要（用于下一章的前情提要）"""
+#     # 取最后几段作为摘要
+#     lines = [l.strip() for l in content.split('\n') if l.strip()]
+#     summary_lines = lines[-3:] if len(lines) > 3 else lines
+#     summary = ' '.join(summary_lines)
+#     return summary[:max_len] + "..." if len(summary) > max_len else summary
 
+def generate_chapter_summary(content: str, roll: int, chapter: int) -> str:
+    """
+    调用 AI 对本章内容进行精准总结，用于下一章的上下文
+    """
+    prompt = f"""
+请阅读以下小说章节内容（第{roll}卷 第{chapter}章），生成一份**剧情摘要**。
+这份摘要将作为AI生成下一章的“前情提要”，所以必须包含关键的逻辑信息。
+
+【原文内容】
+{content}
+
+【摘要要求】
+1. **控制字数**：300字以内，言简意赅。
+2. **核心事件**：主角做了什么？遇到了谁？打败了谁？
+3. **状态变更**：
+   - 获得的物品/功法/能力（如有）。
+   - 人际关系变化（结仇/结盟）。
+   - 主角当前的身体状态（受伤/升级）和所处位置。
+4. **伏笔记录**：如果有未解开的谜题或刚刚埋下的伏笔，请记录下来。
+
+请直接输出摘要内容，不要有任何前缀或解释。
+"""
+    
+    # 使用较低的 temperature 保证总结的客观准确性
+    summary = call_deepseek(prompt, temperature=0.3)
+    
+    if not summary:
+        # 如果API调用失败，作为保底方案，还是截取最后一部分，但稍微长一点
+        logger.warning(f"摘要生成失败，使用从末尾截取作为保底: {roll}-{chapter}")
+        return content[-800:] 
+        
+    return summary
 
 # ======================== 进度管理（断点续传） ========================
 def update_outline_done(csv_path: str, task_id: int, done: bool = True):
@@ -588,7 +629,8 @@ def process_single_task(task: Dict, task_id: int, csv_path: str) -> bool:
                     prev_chapters.append({
                         "roll": r, "chapter": c,
                         "title": chapter_outline.get("本章标题", ""),
-                        "summary": extract_chapter_summary(existing_content)
+                        # "summary": extract_chapter_summary(existing_content)
+                        "summary": generate_chapter_summary(existing_content, r, c)
                     })
                 continue
             
@@ -600,7 +642,8 @@ def process_single_task(task: Dict, task_id: int, csv_path: str) -> bool:
                     f.write(content)
                 
                 # 提取摘要
-                summary = extract_chapter_summary(content)
+                # summary = extract_chapter_summary(content)
+                summary = generate_chapter_summary(content, r, c)
                 
                 # 保存进度到 Excel
                 save_chapter_progress_to_excel(excel_path, r, c, summary)
