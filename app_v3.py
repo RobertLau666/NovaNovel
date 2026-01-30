@@ -94,23 +94,75 @@ def extract_json_from_response(text: str) -> Optional[Dict]:
 # ======================== 大纲生成与修复模块 (核心升级) ========================
 
 def generate_global_settings(task: Dict) -> Optional[Dict]:
-    """生成宏观设定"""
-    prompt = f'''请策划一部{task["novel_type"]}小说。
-想法：{task["novel_idea"]}
-结构：共{task["roll_num"]}卷，每卷{task["chapter_num"]}章
+    """生成完整的宏观设定（含卷大纲，不含章大纲）"""
+    prompt = f'''请参考网络热门或者排行榜靠前的{task["novel_type"]}小说的设定和剧情爽点，写一部小说。
 
-请返回JSON：
+小说想法：{task["novel_idea"]}
+文风：{task["write_style"]}
+目标读者：{task["target_reader"]}
+小说结构：共{task["roll_num"]}卷，每卷{task["chapter_num"]}章，每章约{task["word_num"]}字
+特殊要求：{task["special_requirements"]}
+
+请生成小说的宏观设定，严格返回以下JSON格式（不要有任何额外说明）：
+
 {{
-  "作品概述": {{ "小说标题": "《xxx》", "小说简介": "...", "小说卷数": {task["roll_num"]}, "小说章数": {task["chapter_num"]} }},
-  "核心设定与人物": {{ "1": {{ "姓名": "xxx", "身份": "..." }} }},
+  "作品概述": {{
+    "小说标题": "《xxx》",
+    "小说副标题": "xxx",
+    "小说简介": "该小说讲述了xxx的故事",
+    "类型": "{task["novel_type"]}",
+    "文风": "{task["write_style"]}",
+    "核心爽点和创意": "xxx",
+    "市场分析与亮点总结": "xxx",
+    "小说卷数": {task["roll_num"]},
+    "小说章数": {task["chapter_num"]},
+    "每章字数": {task["word_num"]}
+  }},
+  "核心设定与人物": {{
+    "1": {{
+      "姓名": "xxx",
+      "身份/职位": "xxx",
+      "年龄": "xx岁",
+      "外貌特征": "xxx",
+      "核心性格": "xxx",
+      "成长弧光": "xxx",
+      "与主角关系": "主角"
+    }},
+    "2": {{
+      "姓名": "xxx",
+      "身份/职位": "xxx",
+      "年龄": "xx岁",
+      "外貌特征": "xxx",
+      "核心性格": "xxx",
+      "成长弧光": "xxx",
+      "与主角关系": "xxx"
+    }}
+  }},
   "卷详细大纲": {{
-    "1": {{ "本卷标题": "...", "本卷关键情节": "..." }},
-    "2": {{ "本卷标题": "...", "本卷关键情节": "..." }}
-    // 请确保生成全部 {task["roll_num"]} 卷
+    "1": {{
+      "本卷次": "1",
+      "本卷标题": "xxx",
+      "本卷核心冲突": "xxx",
+      "本卷关键情节": "xxx",
+      "本卷目标": "xxx"
+    }},
+    "2": {{
+      "本卷次": "2",
+      "本卷标题": "xxx",
+      "本卷核心冲突": "xxx",
+      "本卷关键情节": "xxx",
+      "本卷目标": "xxx"
+    }}
   }}
-}}'''
-    logger.info("正在生成宏观设定...")
-    res = call_deepseek(prompt, "你是一位金牌小说策划。", 0.9)
+}}
+
+重要：
+1. 根据卷数{task["roll_num"]}，生成对应数量的卷大纲（注意：此步骤不生成章大纲，章大纲会在后续步骤按卷生成）
+2. 人物至少3-5个主要角色，每个角色要有完整的设定
+3. 只返回JSON，不要任何其他内容
+'''
+    logger.info("正在生成宏观设定（含作品概述、人物设定、卷大纲）...")
+    res = call_deepseek(prompt, "你是一位专业的网络小说策划师，擅长创作热门爆款小说大纲。请严格按照用户要求的JSON格式返回结果。", 0.9)
     return extract_json_from_response(res)
 
 # def generate_volume_chapters(outline: Dict, roll_index: int, chapter_count: int) -> Optional[Dict]:
@@ -158,10 +210,11 @@ def generate_volume_chapters(outline: Dict, roll_index: int, chapter_count: int)
     for cid, char in characters.items():
         if isinstance(char, dict):
             name = char.get("姓名", "未知")
-            role = char.get("身份", "")
+            role = char.get("身份/职位", char.get("身份", ""))  # 兼容两种字段名
             trait = char.get("核心性格", "")
-            # 简化的拼装，节省token但保留核心
-            char_context += f"- {name}：{role}，{trait}\n"
+            relation = char.get("与主角关系", "")
+            # 拼装人物信息
+            char_context += f"- {name}：{role}，{trait}，与主角关系：{relation}\n"
 
     # 4. 构建全书卷结构上下文 (让AI知道当前卷在全书的位置)
     vol_structure = ""
