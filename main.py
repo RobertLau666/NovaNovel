@@ -75,6 +75,9 @@ def call_deepseek(prompt: str, system_prompt: str = None, temperature: float = 0
 
 def extract_json_from_response(text: str) -> Optional[Dict]:
     """从API响应中提取JSON"""
+    if not text:
+        return None
+    
     # 尝试直接解析
     try:
         return json.loads(text)
@@ -85,17 +88,40 @@ def extract_json_from_response(text: str) -> Optional[Dict]:
     patterns = [
         r'```json\s*([\s\S]*?)\s*```',
         r'```\s*([\s\S]*?)\s*```',
-        r'\{[\s\S]*\}'
     ]
     
     for pattern in patterns:
         match = re.search(pattern, text)
         if match:
             try:
-                json_str = match.group(1) if '```' in pattern else match.group(0)
+                json_str = match.group(1)
                 return json.loads(json_str)
             except:
                 continue
+    
+    # 尝试找到最外层的 { } 并解析
+    try:
+        # 找到第一个 { 和最后一个 }
+        start = text.find('{')
+        end = text.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            json_str = text[start:end + 1]
+            return json.loads(json_str)
+    except:
+        pass
+    
+    # 尝试修复常见的 JSON 错误（如多余的逗号）
+    try:
+        start = text.find('{')
+        end = text.rfind('}')
+        if start != -1 and end != -1:
+            json_str = text[start:end + 1]
+            # 移除对象末尾的多余逗号
+            json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
+            return json.loads(json_str)
+    except:
+        pass
+    
     return None
 
 
@@ -185,7 +211,12 @@ def generate_outline(task: Dict) -> Optional[Dict]:
     outline = extract_json_from_response(response)
     if not outline:
         logger.error("大纲生成失败：JSON解析失败")
-        logger.debug(f"原始响应: {response[:500]}...")
+        # 保存原始响应到文件，方便调试
+        debug_file = os.path.join(NOVELS_DIR, f"_debug_response_{int(time.time())}.txt")
+        with open(debug_file, 'w', encoding='utf-8') as f:
+            f.write(response)
+        logger.error(f"原始响应已保存到: {debug_file}")
+        logger.info(f"响应前500字符: {response[:500]}...")
         return None
     
     return outline
@@ -471,7 +502,11 @@ def parse_task_ids(task_id_str: str) -> List[int]:
 def update_task_status(csv_path: str, task_id: int, status: int, 
                        start_time: str = None, end_time: str = None):
     """更新任务状态到CSV"""
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, dtype={'gen_start_time': str, 'gen_end_time': str})
+    # 确保时间列是字符串类型
+    df['gen_start_time'] = df['gen_start_time'].astype(str).replace('nan', '')
+    df['gen_end_time'] = df['gen_end_time'].astype(str).replace('nan', '')
+    
     mask = df['task_id'] == task_id
     
     if mask.any():
