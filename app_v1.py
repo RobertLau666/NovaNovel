@@ -392,8 +392,7 @@ def post_process_content(content: str, roll: int, chapter: int, title: str) -> s
     
 #     return final_content, summary_raw
 
-def generate_chapter(outline: Dict, roll_num: int, chapter_num: int, 
-                     prev_chapters: list, word_num: int) -> Tuple[Optional[str], Optional[str]]:
+def generate_chapter(outline: Dict, roll_num: int, chapter_num: int, prev_chapters: list, word_num: int) -> Tuple[Optional[str], Optional[str]]:
     """
     生成单章内容 + 摘要 (One-Pass 终极优化版)
     功能：
@@ -491,7 +490,7 @@ def generate_chapter(outline: Dict, roll_num: int, chapter_num: int,
     
     return final_content, summary_raw
 
-    
+
 def generate_chapter_summary(content: str, roll: int, chapter: int) -> str:
     """
     独立生成摘要函数
