@@ -3,3 +3,4 @@ __pycache__/
 .gradio
 
 novels*
+temp_novels_views*

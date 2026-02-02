@@ -23,8 +23,10 @@ DEEPSEEK_MODEL=deepseek-chat
 
 DMX_API_KEY=sk-xxxxxxxxxx
 ```
-[DEEPSEEK](https://platform.deepseek.com/usage)
-[DMX](https://www.dmxapi.com/console)
+
+[DEEPSEEK](https://platform.deepseek.com/usage): Used to generate novel content
+
+[DMX](https://www.dmxapi.com/console): Used to generate novel cover
 
 ## Set novel tasks
 Edit `novel_gen_tasks.csv`:
