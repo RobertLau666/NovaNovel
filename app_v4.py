@@ -428,6 +428,8 @@ class NovelGenerator:
 
     def build_chapter_context(self, outline: Dict, volume_num: int, chapter_num: int, prev_chapters: list) -> Tuple[str, str]:
         # (保持不变)
+        volume_info = outline.get("卷详细大纲", {}).get(str(volume_num), {})
+
         chapter_key = f"{volume_num}-{chapter_num}"
         chapters = outline.get("章详细大纲", {})
         chapter_outline = chapters.get(chapter_key, {})
@@ -439,10 +441,8 @@ class NovelGenerator:
             chapter_title = chapter_outline.get("本章标题", f"第{chapter_num}章")
             core_plot = chapter_outline.get("本章核心情节梗概", "")
 
-        volume_info = outline.get("卷详细大纲", {}).get(str(volume_num), {})
-        
         context = f"""
-【小说信息】
+【小说概览】
 小说标题：{outline.get("作品概述", {}).get("小说标题")}
 
 【当前卷信息】
@@ -686,7 +686,7 @@ class NovelGenerator:
                 self.save_outline_to_excel(outline, novel_dir, novel_title)
             
             self.update_task_csv(self.tasks_csv_path, task_id, outline_done=1)
-                
+            
             content_dir = os.path.join(novel_dir, "content")
             os.makedirs(content_dir, exist_ok=True)
             
@@ -696,7 +696,7 @@ class NovelGenerator:
             prev_chapters = progress["prev_chapters"]
             
             volume_num, chap_num = int(task["volume_num"]), int(task["chapter_num"])
-            chapter_outlines = outline.get("章详细大纲", {}) 
+            chapter_outlines = outline.get("章详细大纲", {})
             
             for r in range(1, volume_num + 1):
                 # 标记该卷是否有变动
