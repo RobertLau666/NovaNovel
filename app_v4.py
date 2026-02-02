@@ -18,9 +18,6 @@ import argparse
 import logging
 from dotenv import load_dotenv
 
-# 加载 .env 文件
-load_dotenv()
-
 # ======================== 日志类 ========================
 class Logger(object):
     def __init__(self, log_dir: str, task_id: int, task_config: Dict):
@@ -28,7 +25,7 @@ class Logger(object):
             os.makedirs(log_dir)
         self.log_file_name = os.path.join(log_dir, f"task_{task_id}.log")
         self.terminal = sys.__stdout__ 
-        self.write_in_terminal = True
+        self.write_in_terminal = False
         self.log = open(self.log_file_name, 'a', encoding='utf-8')
         print(f"📄 [Logger] 日志文件目标: {self.log_file_name}")
         start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -315,8 +312,8 @@ class NovelGenerator:
     def save_outline_to_excel(self, outline: Dict, novel_dir: str, novel_title: str) -> str:
         """
         [修改] 增强版 Excel 保存：
-        1. 自动添加 chapter_word_num
-        2. 自动添加 roll_done, roll_word_num
+        1. 强制指定 Sheet 顺序 (作品概述 -> 人物 -> 卷 -> 章)
+        2. 自动添加 chapter_word_num, roll_done, roll_word_num
         3. 严格保留历史数据
         """
         excel_path = os.path.join(novel_dir, "outline.xlsx")
@@ -324,6 +321,7 @@ class NovelGenerator:
         old_chapter_data = {}
         old_volume_data = {}
 
+        # === 1. 备份旧数据 (保持不变) ===
         if os.path.exists(excel_path):
             try:
                 # 备份章进度
@@ -347,10 +345,33 @@ class NovelGenerator:
             except Exception as e:
                 self.logger.warning(f"读取旧Excel状态时遇到小问题: {e}")
 
+        # === 2. 写入新数据 (修改循环逻辑) ===
         with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
-            for sheet_name, data in outline.items():
+            
+            # ✅ [关键修改] 定义期望的 Sheet 顺序
+            target_order = ["作品概述", "核心设定与人物", "卷详细大纲", "章详细大纲"]
+            
+            # 获取大纲中实际存在的所有 key
+            existing_keys = list(outline.keys())
+            
+            # 构建有序列表：先放 target_order 里的，再放剩余没见过的
+            sorted_keys = []
+            for k in target_order:
+                if k in existing_keys:
+                    sorted_keys.append(k)
+            
+            # 把不在目标顺序里的其他 Sheet (如果有) 放到最后
+            for k in existing_keys:
+                if k not in sorted_keys:
+                    sorted_keys.append(k)
+            
+            # ✅ [关键修改] 按有序列表遍历
+            for sheet_name in sorted_keys:
+                data = outline[sheet_name]
                 
-                # === 处理 "章详细大纲" ===
+                # === 下面的逻辑完全保持不变 ===
+                
+                # Case A: 处理 "章详细大纲"
                 if sheet_name == "章详细大纲" and isinstance(data, dict):
                     df = pd.DataFrame.from_dict(data, orient='index')
                     
@@ -368,13 +389,12 @@ class NovelGenerator:
                             if pd.notna(info.get('summary')):
                                 df.at[idx, 'summary'] = info['summary']
                     
-                    # 排序列
                     cols = ['本章所属卷次', '本章次', '本章标题', 'chapter_done', 'chapter_word_num', 'summary'] 
                     other_cols = [c for c in df.columns if c not in cols]
                     df = df[cols + other_cols]
                     df.to_excel(writer, sheet_name=sheet_name, index=True)
 
-                # === 处理 "卷详细大纲" ===
+                # Case B: 处理 "卷详细大纲"
                 elif sheet_name == "卷详细大纲" and isinstance(data, dict):
                     df = pd.DataFrame.from_dict(data, orient='index')
                     
@@ -390,7 +410,7 @@ class NovelGenerator:
                     
                     df.to_excel(writer, sheet_name=sheet_name, index=True)
 
-                # === 其他 Sheet ===
+                # Case C: 其他 Sheet
                 elif isinstance(data, dict):
                     first_val = next(iter(data.values()), None)
                     if isinstance(first_val, dict):
@@ -761,6 +781,8 @@ class NovelGenerator:
 
 # ======================== 主入口 (保持不变) ========================
 def main():
+    # 加载 .env 文件
+    load_dotenv()
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--tasks_csv_path', default="./csvs/novel_gen_tasks_test.csv")
     parser.add_argument('-i', '--task_ids', type=str)
