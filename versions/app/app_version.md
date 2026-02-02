@@ -31,5 +31,6 @@
 13. README.md表格的示例重新改为中文
 14. summary改为chapter_summary
 15. deepseek封装成类
-16. 封面自动生成
-17. 加参数gen-cover，是否使用封面生成
+16. log放在task_id目录下
+17. 封面自动生成
+18. 加参数gen-cover，是否使用封面生成
