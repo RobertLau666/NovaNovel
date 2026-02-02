@@ -20,7 +20,11 @@ Create ```.env``` in project root dir.
 DEEPSEEK_API_KEY=sk-xxxxxxxxxx
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
+
+DMX_API_KEY=sk-xxxxxxxxxx
 ```
+[DEEPSEEK](https://platform.deepseek.com/usage)
+[DMX](https://www.dmxapi.com/console)
 
 ## Set novel tasks
 Edit `novel_gen_tasks.csv`:
@@ -48,23 +52,27 @@ python app.py
 
 ## Command params
 ```bash
-python app.py                    # Process all tasks
-python app.py -i 1               # Only process task_id=1
-python app.py -i 1,3,6           # Process task_id=1,3,6
-python app.py -i 3-6             # Process task_id=3,4,5,6
-python app.py -i 1,3-5,8         # Mixed format: task_id=1,3,4,5,8
-python app.py --api-key sk-xxx   # Specify API Key
-python app.py -f tasks.csv       # Specify task file
+python app.py                            # Process all tasks
+python app.py -i 1                       # Only process task_id=1
+python app.py -i 1,3,6                   # Process task_id=1,3,6
+python app.py -i 3-6                     # Process task_id=3,4,5,6
+python app.py -i 1,3-5,8                 # Mixed format: task_id=1,3,4,5,8
+python app.py --deepseek-api-key sk-xxx  # Specify DeepSeek API Key
+python app.py -f tasks.csv               # Specify task file
+python app.py -i 1 --gen-cover           # Only process task_id=1, use cover generation
 ```
 
 ## Output Structure
 ```
 novels/
 └── task_[id]/
-    ├── outline.xlsx       # Outline (Multiple Sheets, Including Chapter Progress)
-    ├── outline.json       # Original outline JSON
-    └── content/
-        ├── 1-1.txt        # Roll1-Chapter1
-        ├── 1-2.txt        # Roll1-Chapter2
-        └── ...
+|   ├── outline.xlsx       # Outline (Multiple Sheets, Including Chapter Progress)
+|   ├── outline.json       # Original outline JSON
+|   ├── task_[id].log      # Log
+|   └── cover/             # Novel cover
+|   └── content/
+|       ├── 1-1.txt        # Roll1-Chapter1
+|       ├── 1-2.txt        # Roll1-Chapter2
+|       └── ...
+└── task_[id].zip          # Package .zip file
 ```
