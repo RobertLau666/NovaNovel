@@ -34,3 +34,4 @@
 16. log放在task_id目录下
 17. 封面自动生成
 18. 加参数gen-cover，是否使用封面生成
+19. outline.xlsx中的列标题统一为中文
