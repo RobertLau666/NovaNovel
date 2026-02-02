@@ -5,6 +5,7 @@ import pandas as pd
 import time
 import threading
 import glob
+import argparse
 from dotenv import load_dotenv
 
 # 导入核心逻辑
@@ -67,7 +68,6 @@ def read_specific_log(task_id):
     读取特定 Task ID 的日志
     路径: novels/task_[id]/task_[id].log
     """
-    # 你的新目录结构
     log_path = os.path.join(NOVELS_DIR, f"task_{task_id}", f"task_{task_id}.log")
     
     if os.path.exists(log_path):
@@ -95,7 +95,6 @@ def refresh_symlink():
     
     try:
         # 创建软链接: new_link_path -> NOVELS_DIR
-        # 注意：Windows下需要管理员权限，Linux通常不需要
         if os.path.exists(new_link_path):
             os.remove(new_link_path)
             
@@ -144,9 +143,7 @@ def on_csv_selected(filename):
         if 'task_id' in df.columns:
             for idx, row in df.iterrows():
                 tid = row['task_id']
-                # 状态处理
                 status = row.get('status', 0)
-                # status: 0=未开始, 1=进行中, 2=完成, 3=失败
                 status_icon = "✅" if status == 2 else ("🔄" if status == 1 else "⏳")
                 idea = str(row.get('novel_idea', '无主题'))[:15]
                 
@@ -171,7 +168,6 @@ def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
     all_existing_ids = df['task_id'].tolist() if 'task_id' in df.columns else []
 
     # 1. 合并 ID
-    # check_ids 是列表，text_ids 是字符串
     target_ids = set(check_ids)
     target_ids.update(parse_task_ids(text_ids, all_existing_ids))
     target_ids = sorted(list(target_ids))
@@ -224,11 +220,8 @@ def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
         msg_prefix = f"▶️ [{i+1}/{total}] Task {tid}: "
         yield msg_prefix + "正在启动...", ""
         
-        # 更新状态为 1 (进行中)
         generator.update_task_csv(csv_path, tid, status=1, gen_start=True)
         
-        # 启动线程执行 process_task
-        # 这样主线程可以死循环读取 log
         task_thread_finished = False
         
         def run_thread():
@@ -246,16 +239,13 @@ def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
         t = threading.Thread(target=run_thread)
         t.start()
         
-        # 循环读取日志
         while not task_thread_finished:
-            # 读取该 Task 的专属 Log
             log_content = read_specific_log(tid)
             yield msg_prefix + "执行中...", log_content
-            time.sleep(1.5) # 每1.5秒刷新一次日志
+            time.sleep(1.5)
             
         t.join()
         
-        # 最后读取一次日志
         log_content = read_specific_log(tid)
         yield f"✅ Task {tid} 完成。\n", log_content
         
@@ -263,8 +253,10 @@ def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
 
 # ================= Gradio UI 构建 =================
 
-with gr.Blocks(title="AI 小说工厂 (Pro)", theme=gr.themes.Soft()) as demo:
-    gr.Markdown("## 📚 AI 小说自动批量生成系统 (Gradio版)")
+gradio_title = "📚 AI 小说自动批量生成系统 (Gradio版)"
+# 🔴 [修改] 移除了 theme 参数，将其移动到 launch 方法中
+with gr.Blocks(title=gradio_title) as demo:
+    gr.Markdown(f"## {gradio_title}")
     
     # Row 1: CSV 上传与选择
     with gr.Row(variant="panel"):
@@ -276,7 +268,7 @@ with gr.Blocks(title="AI 小说工厂 (Pro)", theme=gr.themes.Soft()) as demo:
             refresh_csv_btn = gr.Button("🔄 刷新列表", size="sm")
         
         with gr.Column(scale=2):
-            csv_viewer = gr.DataFrame(label="📊 CSV 内容预览", height=200, wrap=True)
+            csv_viewer = gr.DataFrame(label="📊 CSV 内容预览", wrap=True)
 
     # Row 2: 任务配置
     with gr.Row(variant="panel"):
@@ -286,9 +278,7 @@ with gr.Blocks(title="AI 小说工厂 (Pro)", theme=gr.themes.Soft()) as demo:
         with gr.Column(scale=3):
             gr.Markdown("### 🎯 任务选择 (Task IDs)")
             with gr.Row():
-                # 动态显示 CSV 中的所有 ID
                 id_checklist = gr.CheckboxGroup(label="列表勾选", choices=[])
-                # 文本输入
                 id_textbox = gr.Textbox(label="文本指定 (支持范围)", placeholder="例: 1, 3-5, 8")
 
     # Row 3: 启动
@@ -299,87 +289,67 @@ with gr.Blocks(title="AI 小说工厂 (Pro)", theme=gr.themes.Soft()) as demo:
     with gr.Row():
         with gr.Column():
             status_bar = gr.Textbox(label="总体状态", show_label=True)
-            # 使用 Code 组件显示日志，支持滚动
-            log_viewer = gr.Code(label="📜 实时日志监控", language="text", lines=15, interactive=False)
+            # 🔴 [修改] language="text" -> language=None
+            log_viewer = gr.Code(label="📜 实时日志监控", language=None, lines=15, interactive=False)
 
     # Row 5: 结果文件管理 (目录+预览)
     gr.Markdown("### 📂 成果文件浏览")
     
     with gr.Row():
         with gr.Column(scale=1):
-            # 左侧：文件目录
-            # 初始化时 root_dir 指向原始目录
-            # 我们用 Timer 定期更新 root_dir 为新的软链接
             file_explorer = gr.FileExplorer(
                 root_dir=NOVELS_DIR,
                 ignore_glob="**/__pycache__/**",
                 label="📁 Novels 目录 (自动刷新)",
                 height=600
             )
-            # 定时器：每5秒触发一次刷新逻辑
-            dir_refresh_timer = gr.Timer(value=5)
+            dir_refresh_timer = gr.Timer(value=3 * 60)
 
         with gr.Column(scale=2):
-            # 右侧：多功能预览区
             gr.Markdown("#### 👁️ 文件预览 & 下载")
             
-            # 路径显示
             selected_path_box = gr.Textbox(label="当前选中文件路径", interactive=False)
             
-            # 不同类型的预览组件 (通过 visible 切换)
             preview_img = gr.Image(label="封面预览", visible=False)
             preview_df = gr.DataFrame(label="表格预览", visible=False)
-            preview_txt = gr.Code(label="文本/代码预览", visible=False, language="text")
+            # 🔴 [修改] language="text" -> language=None (在后面的函数中修改)
+            preview_txt = gr.Code(label="文本/代码预览", visible=False, language=None)
             
-            # 下载组件
             download_btn = gr.File(label="⬇️ 下载文件", visible=True)
 
     # ================= 交互逻辑绑定 =================
 
-    # 1. 上传
     upload_comp.upload(upload_csv_file, inputs=upload_comp, outputs=[csv_dropdown, status_bar])
     
-    # 2. 刷新CSV列表
     refresh_csv_btn.click(lambda: gr.update(choices=get_csv_files()), outputs=csv_dropdown)
     
-    # 3. 选中CSV -> 更新预览 + 更新Checklist
     csv_dropdown.change(
         on_csv_selected,
         inputs=csv_dropdown,
         outputs=[csv_viewer, id_checklist, id_textbox]
     )
     
-    # 4. 运行生成
     run_btn.click(
         execute_tasks,
         inputs=[csv_dropdown, id_checklist, id_textbox, gen_cover_box],
         outputs=[status_bar, log_viewer]
     )
     
-    # 5. 目录自动刷新逻辑 (Timer)
     def auto_refresh_dir():
-        # 调用刷新软链接函数，获取新路径
         new_path = refresh_symlink()
-        # 更新 FileExplorer 的根目录
         return gr.update(root_dir=new_path)
 
     dir_refresh_timer.tick(auto_refresh_dir, outputs=file_explorer)
     
-    # 6. 文件点击 -> 预览逻辑
     def preview_file(file_path):
         if not file_path:
             return [gr.update(visible=False)]*3 + [None, ""]
         
-        # 处理 list 类型 (Gradio 4.x 可能返回 list)
         if isinstance(file_path, list):
             file_path = file_path[0]
             
-        # 获取真实路径 (因为 file_path 包含了软链接路径)
-        # Python 的 open 可以直接打开软链接路径，不需要手动 resolve
-        
         ext = os.path.splitext(file_path)[1].lower()
         
-        # 重置所有组件为不可见
         update_img = gr.update(visible=False)
         update_df = gr.update(visible=False)
         update_txt = gr.update(visible=False)
@@ -397,21 +367,24 @@ with gr.Blocks(title="AI 小说工厂 (Pro)", theme=gr.themes.Soft()) as demo:
                 
             elif ext in ['.txt', '.json', '.log', '.md', '.py']:
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read(20000) # 限制预览长度
+                    content = f.read(20000)
                     if len(content) == 20000: content += "\n... (内容过长截断)"
                 
                 lang_map = {'.json': 'json', '.py': 'python', '.md': 'markdown'}
-                lang = lang_map.get(ext, 'text')
+                # 🔴 [修改] 默认为 None (纯文本) 而不是 "text"
+                lang = lang_map.get(ext, None)
                 update_txt = gr.update(value=content, language=lang, visible=True)
                 
             elif ext == '.zip':
-                update_txt = gr.update(value="📦 ZIP 压缩包，请点击下方下载按钮。", language="text", visible=True)
+                # 🔴 [修改] language=None
+                update_txt = gr.update(value="📦 ZIP 压缩包，请点击下方下载按钮。", language=None, visible=True)
             
             else:
-                update_txt = gr.update(value=f"暂不支持预览 {ext} 格式，请下载查看。", visible=True)
+                # 🔴 [修改] language=None
+                update_txt = gr.update(value=f"暂不支持预览 {ext} 格式，请下载查看。", language=None, visible=True)
                 
         except Exception as e:
-            update_txt = gr.update(value=f"预览出错: {e}", visible=True)
+            update_txt = gr.update(value=f"预览出错: {e}", language=None, visible=True)
             
         return update_img, update_df, update_txt, file_path, file_path
 
@@ -421,10 +394,20 @@ with gr.Blocks(title="AI 小说工厂 (Pro)", theme=gr.themes.Soft()) as demo:
         outputs=[preview_img, preview_df, preview_txt, download_btn, selected_path_box]
     )
 
+# 🔴 [修改] 增加了参数解析
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=7860, help="Gradio server port")
+    parser.add_argument("--share", action="store_true", help="Create a public link")
+    args = parser.parse_args()
+
+    print(f"🚀 Starting Gradio server on port {args.port}...")
+    
+    # 🔴 [修改] 将 theme 移动到 launch 参数中
     demo.queue().launch(
         server_name="0.0.0.0", 
-        server_port=7860, 
-        share=False,
-        allowed_paths=[BASE_DIR] # 允许访问项目目录下文件
+        server_port=args.port, 
+        share=args.share,
+        allowed_paths=[BASE_DIR],
+        theme=gr.themes.Soft() # 这里设置主题
     )

@@ -46,11 +46,7 @@ Edit `novel_gen_tasks.csv`:
 | gen_end_time         | Generation End Time              | Auto-filled                          |
 
 ## Run
-```bash
-python app.py
-```
-
-## Command params
+### Command
 ```bash
 python app.py                            # Process all tasks
 python app.py -i 1                       # Only process task_id=1
@@ -61,6 +57,12 @@ python app.py --deepseek-api-key sk-xxx  # Specify DeepSeek API Key
 python app.py -f tasks.csv               # Specify task file
 python app.py -i 1 --gen-cover           # Only process task_id=1, use cover generation
 ```
+
+### Gradio
+```bash
+python app_gradio.py --port 8080 --share
+```
+![app_gradio.jpeg](./assets/app_gradio.jpeg)
 
 ## Output Structure
 ```
