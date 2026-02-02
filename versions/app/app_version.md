@@ -25,3 +25,5 @@
 7. outline.xlsx的Sheet“章详细大纲”中的“chapter_done”后面加上“chapter_word_num”
 8. 在outline.xlsx的Sheet“卷详细大纲”的列“roll_done”,并且在“roll_done”的后面加上一列“roll_word_num”
 9. 返回JSON的键名称一定要跟下面JSON模版的键名称保持一致，例如返回"本章关键冲突/爽点"，而不是“本章关键冲突/爽点补充”
+10. 删除字数的“至少”
+11. 加上indent_size，定义缩进的个数

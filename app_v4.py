@@ -64,6 +64,7 @@ class NovelGenerator:
         
         self.max_retries = 3
         self.retry_delay = 5
+        self.indent_size = 2
         self.summary_separator = "#####CHAPTER_SUMMARY_SEPARATOR#####"
         
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
@@ -130,7 +131,7 @@ class NovelGenerator:
 小说想法：{task["novel_idea"]}
 文风：{task["write_style"]}
 目标读者：{task["target_reader"]}
-小说结构：共{task["roll_num"]}卷，每卷{task["chapter_num"]}章，每章至少约{task["word_num"]}字
+小说结构：共{task["roll_num"]}卷，每卷{task["chapter_num"]}章，每章约{task["word_num"]}字
 特殊要求：{task["special_requirements"]}
 
 请生成小说的宏观设定，严格返回以下JSON格式（不要有任何额外说明）：
@@ -146,7 +147,7 @@ class NovelGenerator:
     "市场分析与亮点总结": "xxx",
     "小说卷数": {task["roll_num"]},
     "小说章数": {task["chapter_num"]},
-    "每章字数至少": {task["word_num"]}
+    "每章字数约": {task["word_num"]}
   }},
   "核心设定与人物": {{
     "1": {{
@@ -442,14 +443,14 @@ class NovelGenerator:
         for line in lines:
             line = line.strip().replace("#####", "")
             if line and line not in title and "SUMMARY" not in line:
-                processed.append(f"\u3000\u3000{line}\n")
+                processed.append(f"{'\u3000' * self.indent_size}{line}\n")
         return "\n".join(processed)
 
     def generate_chapter(self, outline: Dict, roll: int, chapter: int, prev_chapters: list, word_num: int) -> Tuple[Optional[str], Optional[str]]:
         context, title = self.build_chapter_context(outline, roll, chapter, prev_chapters)
         
         prompt = f"""{context}
-请撰写正文（至少约{word_num}字）。
+请撰写正文（约{word_num}字）。
 要求：场景描写细腻，对话符合人设，严禁流水账。
 格式：正文结束后，换行输出 "{self.summary_separator}"，再写300字摘要。
 """
