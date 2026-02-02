@@ -62,7 +62,7 @@ class NovelGenerator:
         self.max_retries = 3
         self.retry_delay = 5
         self.indent_size = 2
-        self.summary_separator = "#####CHAPTER_SUMMARY_SEPARATOR#####"
+        self.chapter_summary_separator = "#####CHAPTER_SUMMARY_SEPARATOR#####"
         
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
         
@@ -128,7 +128,7 @@ class NovelGenerator:
 小说想法：{task["novel_idea"]}
 文风：{task["write_style"]}
 目标读者：{task["target_reader"]}
-小说结构：共{task["roll_num"]}卷，每卷{task["chapter_num"]}章，每章约{task["word_num"]}字
+小说结构：共{task["volume_num"]}卷，每卷{task["chapter_num"]}章，每章约{task["word_num"]}字
 特殊要求：{task["special_requirements"]}
 
 请生成小说的宏观设定，严格返回以下JSON格式（不要有任何额外说明）：
@@ -142,7 +142,7 @@ class NovelGenerator:
     "文风": "{task["write_style"]}",
     "核心爽点和创意": "xxx",
     "市场分析与亮点总结": "xxx",
-    "小说卷数": {task["roll_num"]},
+    "小说卷数": {task["volume_num"]},
     "小说章数": {task["chapter_num"]},
     "每章字数约": {task["word_num"]}
   }},
@@ -185,7 +185,7 @@ class NovelGenerator:
 }}
 
 重要：
-1. 根据卷数{task["roll_num"]}，生成对应数量的卷大纲（注意：此步骤不生成章大纲，章大纲会在后续步骤按卷生成）
+1. 根据卷数{task["volume_num"]}，生成对应数量的卷大纲（注意：此步骤不生成章大纲，章大纲会在后续步骤按卷生成）
 2. 人物至少3-5个主要角色，每个角色要有完整的设定
 3. 只返回JSON，不要任何其他内容
 '''
@@ -193,13 +193,13 @@ class NovelGenerator:
         res = self.call_deepseek(prompt, "你是一位专业的网络小说策划师，擅长创作热门爆款小说大纲。请严格按照用户要求的JSON格式返回结果。", 0.9)
         return self.extract_json_from_response(res)
 
-    def generate_volume_chapters(self, outline: Dict, roll_index: int, chapter_count: int) -> Optional[Dict]:
+    def generate_volume_chapters(self, outline: Dict, volume_index: int, chapter_count: int) -> Optional[Dict]:
         # (保持原有的生成逻辑)
         overview = outline.get("作品概述", {})
         characters = outline.get("核心设定与人物", {})
         all_volumes = outline.get("卷详细大纲", {})
         
-        current_vol_info = all_volumes.get(str(roll_index), {})
+        current_vol_info = all_volumes.get(str(volume_index), {})
         
         char_context = ""
         for cid, char in characters.items():
@@ -214,7 +214,7 @@ class NovelGenerator:
         for k, v in all_volumes.items():
             vol_structure += f"第{k}卷：{v.get('本卷标题', '')} (冲突：{v.get('本卷核心冲突', '')})\n"
 
-        prompt = f'''你是一位专业的网文大纲师。请根据以下详尽的设定资料，为小说《{overview.get("小说标题")}》的**第{roll_index}卷**创作详细的分章大纲。
+        prompt = f'''你是一位专业的网文大纲师。请根据以下详尽的设定资料，为小说《{overview.get("小说标题")}》的**第{volume_index}卷**创作详细的分章大纲。
 
 【全局设定】
 - 类型/文风：{overview.get("类型")} / {overview.get("文风")}
@@ -227,32 +227,32 @@ class NovelGenerator:
 【全书卷结构】
 {vol_structure}
 
-【当前生成任务：第{roll_index}卷】
-- 本卷标题：{current_vol_info.get("本卷标题", f"第{roll_index}卷")}
+【当前生成任务：第{volume_index}卷】
+- 本卷标题：{current_vol_info.get("本卷标题", f"第{volume_index}卷")}
 - 本卷核心冲突：{current_vol_info.get("本卷核心冲突", "")}
 - 本卷关键情节：{current_vol_info.get("本卷关键情节", "")}
 
 【生成要求】
 1. 必须生成本卷完整的 **{chapter_count}** 个章节。
-2. 严格遵循JSON格式，Key为 "卷数-章数"（如 "{roll_index}-1"）。
+2. 严格遵循JSON格式，Key为 "卷数-章数"（如 "{volume_index}-1"）。
 3. 每一章必须包含：标题、核心情节梗概（至少3个具体事件点）、关键冲突/爽点。
 4. **剧情连贯性**：第一章要承接上一卷（或开篇），最后一章要为下一卷埋伏笔。
 5. 返回JSON的键名称一定要跟下面JSON模版的键名称保持一致，例如返回"本章关键冲突/爽点"，而不是“本章关键冲突/爽点补充”
 
 请返回JSON数据：
 {{
-  "{roll_index}-1": {{
-    "本章所属卷次": "{roll_index}",
+  "{volume_index}-1": {{
+    "本章所属卷次": "{volume_index}",
     "本章次": "1",
     "本章标题": "xxx",
     "本章核心情节梗概": "1.主角... 2.反派... 3.结果...",
     "本章关键冲突/爽点": "xxx",
     "本章人物发展/系统奖励": "xxx"
   }}
-  // ... 请务必生成到 {roll_index}-{chapter_count}
+  // ... 请务必生成到 {volume_index}-{chapter_count}
 }}
 '''
-        self.logger.info(f"正在基于完整设定生成第 {roll_index} 卷大纲 (共{chapter_count}章)...")
+        self.logger.info(f"正在基于完整设定生成第 {volume_index} 卷大纲 (共{chapter_count}章)...")
         system_prompt = "你是一位严谨的小说主编，擅长把控长篇小说的剧情结构和人物逻辑一致性。"
         res = self.call_deepseek(prompt, system_prompt, temperature=0.85)
         return self.extract_json_from_response(res)
@@ -262,13 +262,13 @@ class NovelGenerator:
         if "章详细大纲" not in outline:
             outline["章详细大纲"] = {}
             
-        required_rolls = int(task["roll_num"])
+        required_volumes = int(task["volume_num"])
         required_chapters = int(task["chapter_num"])
         current_chapters = outline.get("章详细大纲", {})
         existing_keys = list(current_chapters.keys())
         novel_title = outline.get("作品概述", {}).get("小说标题", "未命名")
         
-        for r in range(1, required_rolls + 1):
+        for r in range(1, required_volumes + 1):
             strict_key = f"{r}-1"
             is_volume_exist = False
             if strict_key in current_chapters:
@@ -313,7 +313,7 @@ class NovelGenerator:
         """
         [修改] 增强版 Excel 保存：
         1. 强制指定 Sheet 顺序 (作品概述 -> 人物 -> 卷 -> 章)
-        2. 自动添加 chapter_word_num, roll_done, roll_word_num
+        2. 自动添加 chapter_word_num, volume_done, volume_word_num
         3. 严格保留历史数据
         """
         excel_path = os.path.join(novel_dir, "outline.xlsx")
@@ -330,7 +330,7 @@ class NovelGenerator:
                     if self.is_chapter_done(row.get('chapter_done', 0)):
                         old_chapter_data[str(idx)] = {
                             'chapter_done': 1,
-                            'summary': row.get('summary', ''),
+                            'chapter_summary': row.get('chapter_summary', ''),
                             'chapter_word_num': row.get('chapter_word_num', 0)
                         }
                 # 备份卷进度
@@ -338,8 +338,8 @@ class NovelGenerator:
                     old_vol_df = pd.read_excel(excel_path, sheet_name="卷详细大纲", index_col=0, dtype=object)
                     for idx, row in old_vol_df.iterrows():
                          old_volume_data[str(idx)] = {
-                             'roll_done': row.get('roll_done', 0),
-                             'roll_word_num': row.get('roll_word_num', 0)
+                             'volume_done': row.get('volume_done', 0),
+                             'volume_word_num': row.get('volume_word_num', 0)
                          }
                 except: pass
             except Exception as e:
@@ -377,8 +377,8 @@ class NovelGenerator:
                     
                     if 'chapter_done' not in df.columns: df['chapter_done'] = 0
                     if 'chapter_word_num' not in df.columns: df['chapter_word_num'] = 0
-                    if 'summary' not in df.columns: df['summary'] = ''
-                    df['summary'] = df['summary'].astype(object)
+                    if 'chapter_summary' not in df.columns: df['chapter_summary'] = ''
+                    df['chapter_summary'] = df['chapter_summary'].astype(object)
                     
                     for idx in df.index:
                         str_idx = str(idx)
@@ -386,10 +386,10 @@ class NovelGenerator:
                             info = old_chapter_data[str_idx]
                             df.at[idx, 'chapter_done'] = 1
                             df.at[idx, 'chapter_word_num'] = info.get('chapter_word_num', 0)
-                            if pd.notna(info.get('summary')):
-                                df.at[idx, 'summary'] = info['summary']
+                            if pd.notna(info.get('chapter_summary')):
+                                df.at[idx, 'chapter_summary'] = info['chapter_summary']
                     
-                    cols = ['本章所属卷次', '本章次', '本章标题', 'chapter_done', 'chapter_word_num', 'summary'] 
+                    cols = ['本章所属卷次', '本章次', '本章标题', 'chapter_done', 'chapter_word_num', 'chapter_summary'] 
                     other_cols = [c for c in df.columns if c not in cols]
                     df = df[cols + other_cols]
                     df.to_excel(writer, sheet_name=sheet_name, index=True)
@@ -398,15 +398,15 @@ class NovelGenerator:
                 elif sheet_name == "卷详细大纲" and isinstance(data, dict):
                     df = pd.DataFrame.from_dict(data, orient='index')
                     
-                    if 'roll_done' not in df.columns: df['roll_done'] = 0
-                    if 'roll_word_num' not in df.columns: df['roll_word_num'] = 0
+                    if 'volume_done' not in df.columns: df['volume_done'] = 0
+                    if 'volume_word_num' not in df.columns: df['volume_word_num'] = 0
                     
                     for idx in df.index:
                         str_idx = str(idx)
                         if str_idx in old_volume_data:
                             info = old_volume_data[str_idx]
-                            df.at[idx, 'roll_done'] = info.get('roll_done', 0)
-                            df.at[idx, 'roll_word_num'] = info.get('roll_word_num', 0)
+                            df.at[idx, 'volume_done'] = info.get('volume_done', 0)
+                            df.at[idx, 'volume_word_num'] = info.get('volume_word_num', 0)
                     
                     df.to_excel(writer, sheet_name=sheet_name, index=True)
 
@@ -426,9 +426,9 @@ class NovelGenerator:
 
     # ======================== 内容生成模块 ========================
 
-    def build_chapter_context(self, outline: Dict, roll_num: int, chapter_num: int, prev_chapters: list) -> Tuple[str, str]:
+    def build_chapter_context(self, outline: Dict, volume_num: int, chapter_num: int, prev_chapters: list) -> Tuple[str, str]:
         # (保持不变)
-        chapter_key = f"{roll_num}-{chapter_num}"
+        chapter_key = f"{volume_num}-{chapter_num}"
         chapters = outline.get("章详细大纲", {})
         chapter_outline = chapters.get(chapter_key, {})
         
@@ -439,50 +439,54 @@ class NovelGenerator:
             chapter_title = chapter_outline.get("本章标题", f"第{chapter_num}章")
             core_plot = chapter_outline.get("本章核心情节梗概", "")
 
-        volume_info = outline.get("卷详细大纲", {}).get(str(roll_num), {})
+        volume_info = outline.get("卷详细大纲", {}).get(str(volume_num), {})
         
-        context = f"""【小说信息】
-书名：{outline.get("作品概述", {}).get("小说标题")}
-当前卷：{volume_info.get("本卷标题", "")} - {volume_info.get("本卷关键情节", "")}
+        context = f"""
+【小说信息】
+小说标题：{outline.get("作品概述", {}).get("小说标题")}
+
+【当前卷信息】
+本卷标题：{volume_info.get("本卷标题", "")}
+本卷关键情节：{volume_info.get("本卷关键情节", "")}
 
 【本章大纲】
-章节：第{roll_num}卷 第{chapter_num}章《{chapter_title}》
+章节：第{volume_num}卷 第{chapter_num}章《{chapter_title}》
 核心情节：{core_plot}
 关键冲突：{chapter_outline.get("本章关键冲突/爽点", "")}
 """
         if prev_chapters:
             context += "\n【前情提要】\n"
             for prev in prev_chapters[-3:]:
-                context += f"第{prev['roll']}卷{prev['chapter']}章：{prev['summary']}\n"
+                context += f"第{prev['volume']}卷{prev['chapter']}章：{prev['chapter_summary']}\n"
                 
         return context, chapter_title
 
-    def post_process_content(self, content: str, roll: int, chapter: int, title: str) -> str:
+    def post_process_content(self, content: str, volume: int, chapter: int, title: str) -> str:
         lines = content.split('\n')
-        processed = [f"第{roll}卷 第{chapter}章：{title}\n"]
+        processed = [f"第{volume}卷 第{chapter}章：{title}\n"]
         for line in lines:
             line = line.strip().replace("#####", "")
             if line and line not in title and "SUMMARY" not in line:
                 processed.append(f"{'\u3000' * self.indent_size}{line}\n")
         return "\n".join(processed)
 
-    def generate_chapter(self, outline: Dict, roll: int, chapter: int, prev_chapters: list, word_num: int) -> Tuple[Optional[str], Optional[str]]:
-        context, title = self.build_chapter_context(outline, roll, chapter, prev_chapters)
+    def generate_chapter(self, outline: Dict, volume: int, chapter: int, prev_chapters: list, word_num: int) -> Tuple[Optional[str], Optional[str]]:
+        context, title = self.build_chapter_context(outline, volume, chapter, prev_chapters)
         
         prompt = f"""{context}
 请撰写正文（约{word_num}字）。
 要求：场景描写细腻，对话符合人设，严禁流水账。
-格式：正文结束后，换行输出 "{self.summary_separator}"，再写300字摘要。
+格式：正文结束后，换行输出 "{self.chapter_summary_separator}"，再写300字摘要。
 """
-        self.logger.info(f"正在生成: {roll}-{chapter} {title}")
+        self.logger.info(f"正在生成: {volume}-{chapter} {title}")
         res = self.call_deepseek(prompt, "你是一位网文大神。", 0.85)
         if not res: return None, None
         
-        parts = res.split(self.summary_separator)
+        parts = res.split(self.chapter_summary_separator)
         content = parts[0].strip()
-        summary = parts[1].strip() if len(parts) > 1 else content[-400:]
+        chapter_summary = parts[1].strip() if len(parts) > 1 else content[-400:]
         
-        return self.post_process_content(content, roll, chapter, title), summary
+        return self.post_process_content(content, volume, chapter, title), chapter_summary
 
     # ======================== 进度读取 ========================
     def is_chapter_done(self, val) -> bool:
@@ -500,16 +504,16 @@ class NovelGenerator:
                 if self.is_chapter_done(row.get('chapter_done')):
                     r, c = int(float(row['本章所属卷次'])), int(float(row['本章次']))
                     prog["done_set"].add(f"{r}-{c}")
-                    if pd.notna(row.get('summary')):
+                    if pd.notna(row.get('chapter_summary')):
                         prog["prev_chapters"].append({
-                            "roll": r, "chapter": c, 
-                            "summary": str(row['summary'])
+                            "volume": r, "chapter": c, 
+                            "chapter_summary": str(row['chapter_summary'])
                         })
         except Exception as e:
             self.logger.warning(f"加载进度失败: {e}")
         return prog
 
-    def save_progress(self, excel_path: str, r: int, c: int, summary: str, word_count: int):
+    def save_progress(self, excel_path: str, r: int, c: int, chapter_summary: str, word_count: int):
         """
         [修改] 增加 word_count 参数，写入 chapter_word_num
         """
@@ -519,7 +523,7 @@ class NovelGenerator:
             
             if "章详细大纲" in sheets:
                 df = sheets["章详细大纲"]
-                df['summary'] = df['summary'].astype(object)
+                df['chapter_summary'] = df['chapter_summary'].astype(object)
                 
                 # 确保列存在
                 if 'chapter_word_num' not in df.columns: df['chapter_word_num'] = 0
@@ -527,7 +531,7 @@ class NovelGenerator:
                 mask = (df['本章所属卷次'].astype(str) == str(r)) & (df['本章次'].astype(str) == str(c))
                 if mask.any():
                     df.loc[mask, 'chapter_done'] = 1
-                    df.loc[mask, 'summary'] = summary
+                    df.loc[mask, 'chapter_summary'] = chapter_summary
                     df.loc[mask, 'chapter_word_num'] = word_count # 写入字数
 
             with pd.ExcelWriter(excel_path, engine='openpyxl') as w:
@@ -535,7 +539,7 @@ class NovelGenerator:
         except Exception as e:
             self.logger.error(f"保存进度失败: {e}")
 
-    def update_volume_progress(self, excel_path: str, roll_num: int):
+    def update_volume_progress(self, excel_path: str, volume_num: int):
         """
         [新增] 统计并更新某一卷的完成状态和总字数
         """
@@ -548,31 +552,31 @@ class NovelGenerator:
                                 if s not in ["章详细大纲", "卷详细大纲"]}
 
             # 1. 统计该卷的所有章节
-            roll_mask = df_chapters['本章所属卷次'].astype(str) == str(roll_num)
-            chapter_rows = df_chapters[roll_mask]
+            volume_mask = df_chapters['本章所属卷次'].astype(str) == str(volume_num)
+            chapter_rows = df_chapters[volume_mask]
             
             if chapter_rows.empty: return
 
             total_chapters = len(chapter_rows)
             done_count = chapter_rows['chapter_done'].apply(lambda x: 1 if self.is_chapter_done(x) else 0).sum()
             current_volume_words = chapter_rows['chapter_word_num'].fillna(0).sum()
-            is_roll_done = 1 if done_count >= total_chapters else 0
+            is_volume_done = 1 if done_count >= total_chapters else 0
             
-            self.logger.info(f"📊 第 {roll_num} 卷统计: 进度 {done_count}/{total_chapters}, 总字数 {current_volume_words}")
+            self.logger.info(f"📊 第 {volume_num} 卷统计: 进度 {done_count}/{total_chapters}, 总字数 {current_volume_words}")
 
             # 2. 更新卷大纲
-            if 'roll_done' not in df_volumes.columns: df_volumes['roll_done'] = 0
-            if 'roll_word_num' not in df_volumes.columns: df_volumes['roll_word_num'] = 0
+            if 'volume_done' not in df_volumes.columns: df_volumes['volume_done'] = 0
+            if 'volume_word_num' not in df_volumes.columns: df_volumes['volume_word_num'] = 0
             
-            vol_key = str(roll_num)
+            vol_key = str(volume_num)
             # 兼容索引类型
             if vol_key in df_volumes.index.astype(str):
                 try:
-                     df_volumes.loc[int(vol_key), 'roll_done'] = is_roll_done
-                     df_volumes.loc[int(vol_key), 'roll_word_num'] = current_volume_words
+                     df_volumes.loc[int(vol_key), 'volume_done'] = is_volume_done
+                     df_volumes.loc[int(vol_key), 'volume_word_num'] = current_volume_words
                 except KeyError:
-                     df_volumes.loc[vol_key, 'roll_done'] = is_roll_done
-                     df_volumes.loc[vol_key, 'roll_word_num'] = current_volume_words
+                     df_volumes.loc[vol_key, 'volume_done'] = is_volume_done
+                     df_volumes.loc[vol_key, 'volume_word_num'] = current_volume_words
 
             # 3. 保存
             with pd.ExcelWriter(excel_path, engine='openpyxl') as w:
@@ -691,10 +695,10 @@ class NovelGenerator:
             done_set = progress["done_set"]
             prev_chapters = progress["prev_chapters"]
             
-            roll_num, chap_num = int(task["roll_num"]), int(task["chapter_num"])
+            volume_num, chap_num = int(task["volume_num"]), int(task["chapter_num"])
             chapter_outlines = outline.get("章详细大纲", {}) 
             
-            for r in range(1, roll_num + 1):
+            for r in range(1, volume_num + 1):
                 # 标记该卷是否有变动
                 is_volume_dirty = False 
 
@@ -708,12 +712,12 @@ class NovelGenerator:
                     
                     if key in done_set:
                         # (跳过逻辑保持不变)
-                        has_context = any(str(p['roll'])==str(r) and str(p['chapter'])==str(c) for p in prev_chapters)
+                        has_context = any(str(p['volume'])==str(r) and str(p['chapter'])==str(c) for p in prev_chapters)
                         if not has_context and os.path.exists(txt_path):
                             try:
                                 with open(txt_path, 'r', encoding='utf-8') as f: 
                                     s = f.read()[-500:] 
-                                prev_chapters.append({"roll":r, "chapter":c, "summary":s})
+                                prev_chapters.append({"volume":r, "chapter":c, "chapter_summary":s})
                             except IOError as e:
                                 self.logger.warning(f"读取已有章节失败: {e}")
                         
@@ -722,7 +726,7 @@ class NovelGenerator:
                         is_volume_dirty = True
                         continue
                     
-                    content, summary = self.generate_chapter(outline, r, c, prev_chapters, int(task["word_num"]))
+                    content, chapter_summary = self.generate_chapter(outline, r, c, prev_chapters, int(task["word_num"]))
                     
                     # [修改] 计算字数
                     content_len = len(content) if content else 0
@@ -731,10 +735,10 @@ class NovelGenerator:
                         with open(txt_path, 'w', encoding='utf-8') as f: f.write(content)
                         
                         # [修改] 传入字数
-                        self.save_progress(excel_path, r, c, summary, content_len)
+                        self.save_progress(excel_path, r, c, chapter_summary, content_len)
                         
                         done_set.add(key)
-                        prev_chapters.append({"roll":r, "chapter":c, "summary":summary})
+                        prev_chapters.append({"volume":r, "chapter":c, "chapter_summary":chapter_summary})
                         self.logger.info(f"✅ 已生成: {key} (字数: {content_len})")
                         is_volume_dirty = True
                         time.sleep(2)

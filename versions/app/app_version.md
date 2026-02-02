@@ -28,3 +28,5 @@
 10. 删除字数的“至少”
 11. 加上indent_size，定义缩进的个数
 12. 不要输出到终端了
+13. README.md表格的示例重新改为中文
+14. summary改为chapter_summary

@@ -28,12 +28,12 @@ Edit `novel_gen_tasks.csv`:
 | Field                | Description                      | Example                              |
 |----------------------|----------------------------------|--------------------------------------|
 | task_id              | Task ID (starting from 1)        | 1, 2, 3                              |
-| novel_type           | Novel Genre                      | Fantasy, Urban, Romance              |
-| novel_idea           | Core Concept                     | Protagonist's comeback to become a top dog |
-| write_style          | Writing Style                    | Light and humorous, Passionate and thrilling |
-| target_reader        | Target Readers                   | Male, Female                         |
-| special_requirements | Special Requirements             | End each chapter with a cliffhanger  |
-| roll_num             | Number of Volumes                | 2                                    |
+| novel_type           | Novel Genre                      | 玄幻、都市、言情                        |
+| novel_idea           | Core Concept                     | 主角逆袭成大佬                         |
+| write_style          | Writing Style                    | 轻松幽默、热血燃爆                      |
+| target_reader        | Target Readers                   | 男性、女性                             |
+| special_requirements | Special Requirements             | 每章结尾留悬念                         |
+| volume_num           | Number of Volumes                | 2                                    |
 | chapter_num          | Chapters per Volume              | 5                                    |
 | word_num             | Words per Chapter                | 2000                                 |
 | status               | Status                           | 0=Pending, 1=Generating, 2=Completed |
