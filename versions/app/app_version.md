@@ -21,3 +21,7 @@
 3. 加上log
 4. 字数部分加上“至少”
 5. 任务完成后加上打包为zip
+6. 在novels下新建同csv名的子文件夹，防止task_id文件夹被覆盖掉
+7. outline.xlsx的Sheet“章详细大纲”中的“chapter_done”后面加上“chapter_word_num”
+8. 在outline.xlsx的Sheet“卷详细大纲”的列“roll_done”,并且在“roll_done”的后面加上一列“roll_word_num”
+9. 返回JSON的键名称一定要跟下面JSON模版的键名称保持一致，例如返回"本章关键冲突/爽点"，而不是“本章关键冲突/爽点补充”
