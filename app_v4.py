@@ -370,7 +370,7 @@ class NovelGenerator:
         """
         [修改] 增强版 Excel 保存：
         1. 强制指定 Sheet 顺序 (作品概述 -> 人物 -> 卷 -> 章)
-        2. 自动添加 chapter_word_num, volume_done, volume_word_num
+        2. 自动添加列 “本章字数“, “本卷完成情况“, “本卷字数”
         3. 严格保留历史数据
         """
         excel_path = os.path.join(novel_dir, "outline.xlsx")
@@ -384,19 +384,19 @@ class NovelGenerator:
                 # 备份章进度
                 old_ch_df = pd.read_excel(excel_path, sheet_name="章详细大纲", index_col=0, dtype=object)
                 for idx, row in old_ch_df.iterrows():
-                    if self.is_chapter_done(row.get('chapter_done', 0)):
+                    if self.is_chapter_done(row.get('本章完成情况', 0)):
                         old_chapter_data[str(idx)] = {
-                            'chapter_done': 1,
-                            'chapter_summary': row.get('chapter_summary', ''),
-                            'chapter_word_num': row.get('chapter_word_num', 0)
+                            '本章完成情况': 1,
+                            '本章总结': row.get('本章总结', ''),
+                            '本章字数': row.get('本章字数', 0)
                         }
                 # 备份卷进度
                 try:
                     old_vol_df = pd.read_excel(excel_path, sheet_name="卷详细大纲", index_col=0, dtype=object)
                     for idx, row in old_vol_df.iterrows():
                          old_volume_data[str(idx)] = {
-                             'volume_done': row.get('volume_done', 0),
-                             'volume_word_num': row.get('volume_word_num', 0)
+                             '本卷完成情况': row.get('本卷完成情况', 0),
+                             '本卷字数': row.get('本卷字数', 0)
                          }
                 except: pass
             except Exception as e:
@@ -432,21 +432,21 @@ class NovelGenerator:
                 if sheet_name == "章详细大纲" and isinstance(data, dict):
                     df = pd.DataFrame.from_dict(data, orient='index')
                     
-                    if 'chapter_done' not in df.columns: df['chapter_done'] = 0
-                    if 'chapter_word_num' not in df.columns: df['chapter_word_num'] = 0
-                    if 'chapter_summary' not in df.columns: df['chapter_summary'] = ''
-                    df['chapter_summary'] = df['chapter_summary'].astype(object)
+                    if '本章完成情况' not in df.columns: df['本章完成情况'] = 0
+                    if '本章字数' not in df.columns: df['本章字数'] = 0
+                    if '本章总结' not in df.columns: df['本章总结'] = ''
+                    df['本章总结'] = df['本章总结'].astype(object)
                     
                     for idx in df.index:
                         str_idx = str(idx)
                         if str_idx in old_chapter_data:
                             info = old_chapter_data[str_idx]
-                            df.at[idx, 'chapter_done'] = 1
-                            df.at[idx, 'chapter_word_num'] = info.get('chapter_word_num', 0)
-                            if pd.notna(info.get('chapter_summary')):
-                                df.at[idx, 'chapter_summary'] = info['chapter_summary']
+                            df.at[idx, '本章完成情况'] = 1
+                            df.at[idx, '本章字数'] = info.get('本章字数', 0)
+                            if pd.notna(info.get('本章总结')):
+                                df.at[idx, '本章总结'] = info['本章总结']
                     
-                    cols = ['本章所属卷次', '本章次', '本章标题', 'chapter_done', 'chapter_word_num', 'chapter_summary'] 
+                    cols = ['本章所属卷次', '本章次', '本章标题', '本章完成情况', '本章字数', '本章总结'] 
                     other_cols = [c for c in df.columns if c not in cols]
                     df = df[cols + other_cols]
                     df.to_excel(writer, sheet_name=sheet_name, index=True)
@@ -455,15 +455,15 @@ class NovelGenerator:
                 elif sheet_name == "卷详细大纲" and isinstance(data, dict):
                     df = pd.DataFrame.from_dict(data, orient='index')
                     
-                    if 'volume_done' not in df.columns: df['volume_done'] = 0
-                    if 'volume_word_num' not in df.columns: df['volume_word_num'] = 0
+                    if '本卷完成情况' not in df.columns: df['本卷完成情况'] = 0
+                    if '本卷字数' not in df.columns: df['本卷字数'] = 0
                     
                     for idx in df.index:
                         str_idx = str(idx)
                         if str_idx in old_volume_data:
                             info = old_volume_data[str_idx]
-                            df.at[idx, 'volume_done'] = info.get('volume_done', 0)
-                            df.at[idx, 'volume_word_num'] = info.get('volume_word_num', 0)
+                            df.at[idx, '本卷完成情况'] = info.get('本卷完成情况', 0)
+                            df.at[idx, '本卷字数'] = info.get('本卷字数', 0)
                     
                     df.to_excel(writer, sheet_name=sheet_name, index=True)
 
@@ -514,7 +514,7 @@ class NovelGenerator:
         if prev_chapters:
             context += "\n【前情提要】\n"
             for prev in prev_chapters[-3:]:
-                context += f"第{prev['volume']}卷{prev['chapter']}章：{prev['chapter_summary']}\n"
+                context += f"第{prev['volume']}卷{prev['chapter']}章：{prev['本章总结']}\n"
                 
         return context, chapter_title
 
@@ -558,13 +558,14 @@ class NovelGenerator:
         try:
             df = pd.read_excel(excel_path, sheet_name="章详细大纲", index_col=0, dtype=object)
             for idx, row in df.iterrows():
-                if self.is_chapter_done(row.get('chapter_done')):
+                if self.is_chapter_done(row.get('本章完成情况')):
                     r, c = int(float(row['本章所属卷次'])), int(float(row['本章次']))
                     prog["done_set"].add(f"{r}-{c}")
-                    if pd.notna(row.get('chapter_summary')):
+                    if pd.notna(row.get('本章总结')):
                         prog["prev_chapters"].append({
-                            "volume": r, "chapter": c, 
-                            "chapter_summary": str(row['chapter_summary'])
+                            "volume": r, 
+                            "chapter": c, 
+                            "本章总结": str(row['本章总结'])
                         })
         except Exception as e:
             self.logger.warning(f"加载进度失败: {e}")
@@ -572,7 +573,7 @@ class NovelGenerator:
 
     def save_progress(self, excel_path: str, r: int, c: int, chapter_summary: str, word_count: int):
         """
-        [修改] 增加 word_count 参数，写入 chapter_word_num
+        [修改] 增加 word_count 参数，写入 本章字数
         """
         try:
             with pd.ExcelFile(excel_path) as xls:
@@ -580,16 +581,16 @@ class NovelGenerator:
             
             if "章详细大纲" in sheets:
                 df = sheets["章详细大纲"]
-                df['chapter_summary'] = df['chapter_summary'].astype(object)
+                df['本章总结'] = df['本章总结'].astype(object)
                 
                 # 确保列存在
-                if 'chapter_word_num' not in df.columns: df['chapter_word_num'] = 0
+                if '本章字数' not in df.columns: df['本章字数'] = 0
 
                 mask = (df['本章所属卷次'].astype(str) == str(r)) & (df['本章次'].astype(str) == str(c))
                 if mask.any():
-                    df.loc[mask, 'chapter_done'] = 1
-                    df.loc[mask, 'chapter_summary'] = chapter_summary
-                    df.loc[mask, 'chapter_word_num'] = word_count # 写入字数
+                    df.loc[mask, '本章完成情况'] = 1
+                    df.loc[mask, '本章总结'] = chapter_summary
+                    df.loc[mask, '本章字数'] = word_count # 写入字数
 
             with pd.ExcelWriter(excel_path, engine='openpyxl') as w:
                 for n, d in sheets.items(): d.to_excel(w, sheet_name=n)
@@ -615,25 +616,25 @@ class NovelGenerator:
             if chapter_rows.empty: return
 
             total_chapters = len(chapter_rows)
-            done_count = chapter_rows['chapter_done'].apply(lambda x: 1 if self.is_chapter_done(x) else 0).sum()
-            current_volume_words = chapter_rows['chapter_word_num'].fillna(0).sum()
+            done_count = chapter_rows['本章完成情况'].apply(lambda x: 1 if self.is_chapter_done(x) else 0).sum()
+            current_volume_words = chapter_rows['本章字数'].fillna(0).sum()
             is_volume_done = 1 if done_count >= total_chapters else 0
             
             self.logger.info(f"📊 第 {volume_num} 卷统计: 进度 {done_count}/{total_chapters}, 总字数 {current_volume_words}")
 
             # 2. 更新卷大纲
-            if 'volume_done' not in df_volumes.columns: df_volumes['volume_done'] = 0
-            if 'volume_word_num' not in df_volumes.columns: df_volumes['volume_word_num'] = 0
+            if '本卷完成情况' not in df_volumes.columns: df_volumes['本卷完成情况'] = 0
+            if '本卷字数' not in df_volumes.columns: df_volumes['本卷字数'] = 0
             
             vol_key = str(volume_num)
             # 兼容索引类型
             if vol_key in df_volumes.index.astype(str):
                 try:
-                     df_volumes.loc[int(vol_key), 'volume_done'] = is_volume_done
-                     df_volumes.loc[int(vol_key), 'volume_word_num'] = current_volume_words
+                     df_volumes.loc[int(vol_key), '本卷完成情况'] = is_volume_done
+                     df_volumes.loc[int(vol_key), '本卷字数'] = current_volume_words
                 except KeyError:
-                     df_volumes.loc[vol_key, 'volume_done'] = is_volume_done
-                     df_volumes.loc[vol_key, 'volume_word_num'] = current_volume_words
+                     df_volumes.loc[vol_key, '本卷完成情况'] = is_volume_done
+                     df_volumes.loc[vol_key, '本卷字数'] = current_volume_words
 
             # 3. 保存
             with pd.ExcelWriter(excel_path, engine='openpyxl') as w:
@@ -778,7 +779,7 @@ class NovelGenerator:
                             try:
                                 with open(txt_path, 'r', encoding='utf-8') as f: 
                                     s = f.read()[-500:] 
-                                prev_chapters.append({"volume":r, "chapter":c, "chapter_summary":s})
+                                prev_chapters.append({"volume":r, "chapter":c, "本章总结":s})
                             except IOError as e:
                                 self.logger.warning(f"读取已有章节失败: {e}")
                         
@@ -799,7 +800,7 @@ class NovelGenerator:
                         self.save_progress(excel_path, r, c, chapter_summary, content_len)
                         
                         done_set.add(key)
-                        prev_chapters.append({"volume":r, "chapter":c, "chapter_summary":chapter_summary})
+                        prev_chapters.append({"volume":r, "chapter":c, "本章总结":chapter_summary})
                         self.logger.info(f"✅ 已生成: {key} (字数: {content_len})")
                         is_volume_dirty = True
                         time.sleep(2)
@@ -812,7 +813,7 @@ class NovelGenerator:
                     self.update_volume_progress(excel_path, r)
             
             # 生成封面
-            if not self.img_generator:
+            if self.img_generator:
                 self.logger.info(f"🔄 正在生成小说封面...")
                 cover_save_dir = os.path.join(novel_dir, "cover")
                 if not os.path.exists(cover_save_dir):
