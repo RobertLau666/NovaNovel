@@ -62,16 +62,28 @@ def parse_task_ids(text_input, all_ids):
     return sorted(list(valid_ids))
 
 def read_specific_log(task_id):
-    """读取特定 Task ID 的日志"""
-    log_path = os.path.join(NOVELS_DIR, f"task_{task_id}", f"task_{task_id}.log")
-    if os.path.exists(log_path):
+    """
+    读取特定 Task ID 的日志
+    使用递归搜索，因为 log 可能在 novels/csv_filename/task_id/ 下
+    """
+    # 🟢 [修改] 使用 glob 递归查找 task_{id}.log
+    # pattern: novels/**/task_{id}/task_{id}.log
+    search_pattern = os.path.join(NOVELS_DIR, "**", f"task_{task_id}", f"task_{task_id}.log")
+    
+    # recursive=True 允许 ** 匹配多级目录
+    found_files = glob.glob(search_pattern, recursive=True)
+    
+    if found_files:
+        # 取第一个找到的文件
+        log_path = found_files[0]
         try:
             with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
                 return f.read()
         except Exception as e:
             return f"读取日志出错: {e}"
     else:
-        return f"等待日志文件生成...\n目标路径: {log_path}"
+        # 调试信息：告诉用户我们在哪没找到
+        return f"⏳ 正在初始化日志文件...\n(Searching in: {NOVELS_DIR}/**/task_{task_id}.log)"
 
 # ================= 后台任务：软链接刷新 =================
 
