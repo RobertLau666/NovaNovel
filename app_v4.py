@@ -46,37 +46,18 @@ class Logger(object):
             self.terminal.flush()
         self.log.flush()
 
-# ======================== AI 小说生成器类 ========================
-
-class NovelGenerator:
-    def __init__(self, api_key: str, base_url: str, model_name: str, tasks_csv_path: str):
-        self.api_key = api_key
-        self.base_url = base_url
+class DeepSeekClient:
+    def __init__(self, api_key: str, base_url: str, model_name: str, max_retries: int = 3, retry_delay: int = 5):
+        self.client = OpenAI(api_key=api_key, base_url=base_url)
         self.model_name = model_name
-
-        self.base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.novels_dir = os.path.join(self.base_dir, "novels")
-        self.logs_dir = os.path.join(self.base_dir, "logs")
-        self.tasks_csv_path = tasks_csv_path
-        
-        self.max_retries = 3
-        self.retry_delay = 5
-        self.indent_size = 2
-        self.chapter_summary_separator = "#####CHAPTER_SUMMARY_SEPARATOR#####"
-        
-        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
-        
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s [%(levelname)s] %(message)s',
-            datefmt='%H:%M:%S',
-            force=True
-        )
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
         self.logger = logging.getLogger(__name__)
 
-    # ======================== API 基础函数 ========================
-    
-    def call_deepseek(self, prompt: str, system_prompt: str = None, temperature: float = 0.8) -> Optional[str]:
+    def call(self, prompt: str, system_prompt: str = None, temperature: float = 0.8) -> Optional[str]:
+        """
+        统一的 API 调用入口
+        """
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -92,10 +73,61 @@ class NovelGenerator:
                 )
                 return response.choices[0].message.content
             except Exception as e:
-                self.logger.warning(f"API调用失败 ({attempt + 1}): {e}")
+                self.logger.warning(f"API调用失败 ({attempt + 1}/{self.max_retries}): {e}")
                 if attempt < self.max_retries - 1:
                     time.sleep(self.retry_delay)
+        
+        self.logger.error("API调用多次失败，放弃请求。")
         return None
+
+# ======================== AI 小说生成器类 ========================
+
+class NovelGenerator:
+    def __init__(self, llm_client: DeepSeekClient, tasks_csv_path: str):
+        # 🟢 1. 接收外部传入的 client 实例
+        self.llm = llm_client 
+        
+        # 路径设置
+        self.base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.novels_dir = os.path.join(self.base_dir, "novels")
+        self.logs_dir = os.path.join(self.base_dir, "logs")
+        self.tasks_csv_path = tasks_csv_path
+        
+        # 其他配置
+        self.indent_size = 2
+        self.chapter_summary_separator = "#####CHAPTER_SUMMARY_SEPARATOR#####"
+        
+        # 初始化 Logger 配置 (保持原样，或者放在 main 中也可，这里保留以防万一)
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s [%(levelname)s] %(message)s',
+            datefmt='%H:%M:%S',
+            force=True
+        )
+        self.logger = logging.getLogger(__name__)
+
+    # ======================== API 基础函数 ========================
+    
+    # def call_deepseek(self, prompt: str, system_prompt: str = None, temperature: float = 0.8) -> Optional[str]:
+    #     messages = []
+    #     if system_prompt:
+    #         messages.append({"role": "system", "content": system_prompt})
+    #     messages.append({"role": "user", "content": prompt})
+        
+    #     for attempt in range(self.max_retries):
+    #         try:
+    #             response = self.client.chat.completions.create(
+    #                 model=self.model_name,
+    #                 messages=messages,
+    #                 temperature=temperature,
+    #                 max_tokens=8192,
+    #             )
+    #             return response.choices[0].message.content
+    #         except Exception as e:
+    #             self.logger.warning(f"API调用失败 ({attempt + 1}): {e}")
+    #             if attempt < self.max_retries - 1:
+    #                 time.sleep(self.retry_delay)
+    #     return None
 
     def extract_json_from_response(self, text: str) -> Optional[Dict]:
         if not text: return None
@@ -190,7 +222,7 @@ class NovelGenerator:
 3. 只返回JSON，不要任何其他内容
 '''
         self.logger.info("正在生成宏观设定（含作品概述、人物设定、卷大纲）...")
-        res = self.call_deepseek(prompt, "你是一位专业的网络小说策划师，擅长创作热门爆款小说大纲。请严格按照用户要求的JSON格式返回结果。", 0.9)
+        res = self.llm.call(prompt, "你是一位专业的网络小说策划师，擅长创作热门爆款小说大纲。请严格按照用户要求的JSON格式返回结果。", 0.9)
         return self.extract_json_from_response(res)
 
     def generate_volume_chapters(self, outline: Dict, volume_index: int, chapter_count: int) -> Optional[Dict]:
@@ -254,7 +286,7 @@ class NovelGenerator:
 '''
         self.logger.info(f"正在基于完整设定生成第 {volume_index} 卷大纲 (共{chapter_count}章)...")
         system_prompt = "你是一位严谨的小说主编，擅长把控长篇小说的剧情结构和人物逻辑一致性。"
-        res = self.call_deepseek(prompt, system_prompt, temperature=0.85)
+        res = self.llm.call(prompt, system_prompt, temperature=0.85)
         return self.extract_json_from_response(res)
 
     def check_and_fix_outline(self, outline: Dict, task: Dict, outline_path: str, novel_dir: str) -> Tuple[Dict, bool]:
@@ -479,7 +511,7 @@ class NovelGenerator:
 格式：正文结束后，换行输出 "{self.chapter_summary_separator}"，再写300字摘要。
 """
         self.logger.info(f"正在生成: {volume}-{chapter} {title}")
-        res = self.call_deepseek(prompt, "你是一位网文大神。", 0.85)
+        res = self.llm.call(prompt, "你是一位网文大神。", 0.85)
         if not res: return None, None
         
         parts = res.split(self.chapter_summary_separator)
@@ -805,7 +837,17 @@ def main():
         print(f"File not found: {args.tasks_csv_path}")
         return
 
-    generator = NovelGenerator(api_key, base_url, model_name, args.tasks_csv_path)
+    # 🟢 1. 先实例化 DeepSeekClient
+    llm_client = DeepSeekClient(
+        api_key=api_key, 
+        base_url=base_url, 
+        model_name=model_name
+    )
+    # 🟢 2. 将 client 传入 NovelGenerator
+    generator = NovelGenerator(
+        llm_client=llm_client, 
+        tasks_csv_path=args.tasks_csv_path
+    )
 
     df = pd.read_csv(args.tasks_csv_path)
     target_task_ids = []

@@ -30,3 +30,4 @@
 12. 不要输出到终端了
 13. README.md表格的示例重新改为中文
 14. summary改为chapter_summary
+15. deepseek封装成类
