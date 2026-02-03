@@ -2,18 +2,6 @@
 
 **AINovel** is an automatic batch novels generation system based on the DeepSeek API, supporting batch tasks and resume from breakpoints.
 
-## Install
-```bash
-# 1. Clone repository
-git clone https://github.com/RobertLau666/AINovel.git
-cd AINovel
-
-# 2. Install venv
-conda create -n ainovel python=3.12
-conda activate ainovel
-pip install -r requirements.txt
-```
-
 ## Set API Key
 Create ```.env``` in project root dir.
 ```
@@ -51,8 +39,29 @@ task_id,novel_type,novel_idea,write_style,target_reader,special_requirements,rol
 1,玄幻,主角从萌新升级成为上界大佬，要有逆袭情节剧情精彩详实，有反转,热血燃爆,男性,每章要有起承转合，结尾留有悬念,10,80,2000,0,0,,
 ```
 
-## Run
-### Command
+## Quick Start
+- Linux/macOS users:
+1. First, you need to grant execution permission to the script: Open the terminal and run ```chmod +x start.sh```.
+2. Starting method: Run ```./start.sh``` in the terminal.
+
+- Windows users:
+1. Just double-click ```start.bat```. Or if you have installed Git Bash, you can right-click and select ```Git Bash Here``` then run ```./start.sh```.
+
+## Manual installation
+### Install
+```bash
+# 1. Clone repository
+git clone https://github.com/RobertLau666/AINovel.git
+cd AINovel
+
+# 2. Install venv
+conda create -n ainovel python=3.12
+conda activate ainovel
+pip install -r requirements.txt
+```
+
+### Run
+#### Command
 ```bash
 python app.py                            # Process all tasks
 python app.py -i 1                       # Only process task_id=1
@@ -64,10 +73,12 @@ python app.py -f tasks.csv               # Specify task file
 python app.py -i 1 --gen-cover           # Only process task_id=1, use cover generation
 ```
 
-### Gradio
+#### Gradio
 ```bash
 python app_gradio.py --port 8080 --share
 ```
+Then open local URL: ```http://0.0.0.0:8080``` or public URL, such as ```https://d0bf92b05a8a956e5f.gradio.live```.
+
 ![app_gradio.jpeg](./assets/app_gradio.jpeg)
 
 ## Output Structure
@@ -83,6 +94,13 @@ novels/
 │       ├── 1-2.txt        # Roll1-Chapter2
 │       └── ...
 └── task_[id].zip          # Package .zip file
+```
+
+## Content expansion
+Use [ChatGPT](https://chatgpt.com/) to expand content, prompt is as follows:
+```
+***
+这段内容的字数约3770左右，扩写到4000字，并且说明在哪里插入什么内容”
 ```
 
 ## Novel Cover Generation
