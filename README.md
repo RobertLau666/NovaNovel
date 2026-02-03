@@ -20,22 +20,22 @@ Edit `*.csv` and put it under dir ```novel_gen_tasks/```.
 | task_id              | Task ID (starting from 1)        | 1, 2, 3                              |
 | novel_type           | Novel Genre                      | 玄幻、都市、言情                        |
 | novel_idea           | Core Concept                     | 主角逆袭成大佬                         |
-| write_style          | Writing Style                    | 轻松幽默、热血燃爆                      |
+| write_style          | Writing Style                    | 轻松幽默、热血燃爆、搞笑、中二、腹黑       |
 | target_reader        | Target Readers                   | 男性、女性                             |
-| special_requirements | Special Requirements             | 每章结尾留悬念                         |
+| note                 | Note                             | 每章结尾留悬念                         |
 | volume_num           | Number of Volumes                | 2                                    |
 | chapter_num          | Chapters per Volume              | 5                                    |
-| word_num             | Words per Chapter                | 2000                                 |
+| chapter_word_num     | Words per Chapter                | 2000                                 |
 | status               | Status                           | 0=Pending, 1=Generating, 2=Completed |
 | outline_done         | Outline Completion               | 0=Incomplete, 1=Completed            |
-| gen_start_time       | Generation Start Time            | Auto-filled                          |
-| gen_end_time         | Generation End Time              | Auto-filled                          |
+| novel_gen_start_time | Novel Generation Start Time      | Auto-filled                          |
+| novel_gen_end_time   | Novel Generation End Time        | Auto-filled                          |
 
 Or you can ask [Google AI Studio](https://aistudio.google.com/) for novel generate tasks:
 ```
 你是一个熟悉现在各大小说app上畅销书和写作风格的分析专家，你知道什么样的小说很火，你可以深度调研，写一个兴趣调查分析报告，你知道大家都喜欢读什么样子的小说，比如：废柴打怪升级、变强、科幻休闲、穿越、迎娶白富美，或者这些不同类型可以杂糅，会不会变得更有趣呢，我不太了解，你自己看着办吧。
 帮我出出主意，我的目标是成为排行榜前几的写作大佬。然后仿照下面这种格式 返回给我一个csv表格,包含30条任务（按照预计火爆程度进行从其拿到后排序），其中novel_idea可以尽情发挥，字数多一些
-task_id,novel_type,novel_idea,write_style,target_reader,special_requirements,roll_num,chapter_num,word_num,status,outline_done,gen_start_time,gen_end_time
+task_id,novel_type,novel_idea,write_style,target_reader,note,volume_num,chapter_num,chapter_word_num,status,outline_done,gen_start_time,gen_end_time
 1,玄幻,主角从萌新升级成为上界大佬，要有逆袭情节剧情精彩详实，有反转,热血燃爆,男性,每章要有起承转合，结尾留有悬念,10,80,2000,0,0,,
 ```
 

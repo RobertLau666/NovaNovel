@@ -8,17 +8,19 @@ import os
 import sys
 import re
 import json
+import json_repair
 import time
 import requests
 import shutil
-import http.client
-from datetime import datetime
-import pandas as pd
-from openai import OpenAI
-from typing import Optional, Dict, Any, List, Tuple
 import argparse
 import logging
+import http.client
+import pandas as pd
+from datetime import datetime
+from openai import OpenAI
+from typing import Optional, Dict, Any, List, Tuple
 from dotenv import load_dotenv
+from concurrent.futures import ProcessPoolExecutor
 
 # ======================== 日志类 ========================
 class Logger(object):
@@ -178,38 +180,86 @@ class NovelGenerator:
         )
         self.logger = logging.getLogger(__name__)
 
+    # def extract_json_from_response(self, text: str) -> Optional[Dict]:
+    #     if not text: return None
+        
+    #     # 🟢 [修改] 尝试解析，如果失败，记录原始文本以便调试
+    #     try:
+    #         # 1. 尝试直接解析
+    #         return json.loads(text)
+    #     except (json.JSONDecodeError, ValueError):
+    #         pass
+            
+    #     # 2. 尝试提取 Markdown 代码块
+    #     patterns = [r'```json\s*([\s\S]*?)\s*```', r'```\s*([\s\S]*?)\s*```']
+    #     for p in patterns:
+    #         m = re.search(p, text)
+    #         if m:
+    #             try: 
+    #                 return json.loads(m.group(1))
+    #             except (json.JSONDecodeError, ValueError): 
+    #                 continue
+        
+    #     # 3. 尝试寻找最外层的大括号
+    #     try:
+    #         s, e = text.find('{'), text.rfind('}')
+    #         if s != -1 and e != -1: 
+    #             # 尝试修复常见的尾部逗号问题
+    #             json_str = text[s:e+1]
+    #             json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
+    #             return json.loads(json_str)
+    #     except (json.JSONDecodeError, ValueError): 
+    #         pass
+            
+    #     # 🟢 [新增] 如果所有方法都失败，打印错误日志
+    #     self.logger.error(f"❌ JSON解析彻底失败。原始返回内容如下:\n{text[:500]}...\n(后略)")
+    #     return None
+
     def extract_json_from_response(self, text: str) -> Optional[Dict]:
         if not text: return None
         
-        # 🟢 [修改] 尝试解析，如果失败，记录原始文本以便调试
+        # 🟢 方案一：尝试使用 json_repair (神器，能修复绝大多数 LLM 格式错误)
         try:
-            # 1. 尝试直接解析
-            return json.loads(text)
+            import json_repair
+            decoded_obj = json_repair.loads(text)
+            # json_repair 有时会把纯文本误判为字符串，这里做个双重检查
+            if isinstance(decoded_obj, dict):
+                return decoded_obj
+        except ImportError:
+            # 如果用户没装这个库，就在日志里提醒一下
+            self.logger.warning("建议 pip install json_repair 以获得更强的容错能力")
+        except Exception:
+            pass # 继续尝试下面的手动方法
+
+        # 🟢 方案二：手动清洗 Markdown 标记 (增强版)
+        # 即使没有闭合的 ``` 也能提取
+        clean_text = text.strip()
+        
+        # 移除开头的 ```json 或 ```
+        clean_text = re.sub(r'^```(json)?\s*', '', clean_text, flags=re.IGNORECASE)
+        # 移除结尾的 ``` 
+        clean_text = re.sub(r'\s*```$', '', clean_text)
+        
+        try:
+            return json.loads(clean_text)
         except (json.JSONDecodeError, ValueError):
             pass
-            
-        # 2. 尝试提取 Markdown 代码块
-        patterns = [r'```json\s*([\s\S]*?)\s*```', r'```\s*([\s\S]*?)\s*```']
-        for p in patterns:
-            m = re.search(p, text)
-            if m:
-                try: 
-                    return json.loads(m.group(1))
-                except (json.JSONDecodeError, ValueError): 
-                    continue
-        
-        # 3. 尝试寻找最外层的大括号
+
+        # 🟢 方案三：寻找最外层大括号 (容错截断)
         try:
-            s, e = text.find('{'), text.rfind('}')
+            s = text.find('{')
+            e = text.rfind('}')
             if s != -1 and e != -1: 
-                # 尝试修复常见的尾部逗号问题
                 json_str = text[s:e+1]
+                # 尝试修复尾部逗号
                 json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
+                # 尝试去除注释 //
+                json_str = re.sub(r'(?<!:)//.*$', '', json_str, flags=re.MULTILINE)
                 return json.loads(json_str)
         except (json.JSONDecodeError, ValueError): 
             pass
             
-        # 🟢 [新增] 如果所有方法都失败，打印错误日志
+        # 失败日志
         self.logger.error(f"❌ JSON解析彻底失败。原始返回内容如下:\n{text[:500]}...\n(后略)")
         return None
 
@@ -239,6 +289,7 @@ class NovelGenerator:
     "小说副标题": "xxx",
     "小说简介": "写一个黄金三章式的简介，突出金手指、核心矛盾和爽点，让人看一眼就想点进去",
     "类型": "{task["novel_type"]}",
+    "文风": "{task["write_style"]}",
     "核心爽点和创意": "xxx",
     "市场分析与亮点总结": "xxx",
     "小说卷数": {task["volume_num"]},
@@ -291,8 +342,8 @@ class NovelGenerator:
 3. 只返回JSON，不要任何其他内容
 '''
         self.logger.info("正在生成宏观设定（含作品概述、人物设定、卷大纲）...")
-        # 🟢 [修改] temperature=1.0 (最大化脑洞)
-        res = self.llm.call(prompt, "你是一位专业的网络小说策划师，擅长创作热门爆款小说大纲。请严格按照用户要求的JSON格式返回结果。", 1.0)
+        # 🟢 [修改] temperature=1.0 (最大化脑洞)，将 1.0 改为 0.9，提高 JSON 格式稳定性
+        res = self.llm.call(prompt, "你是一位专业的网络小说策划师，擅长创作热门爆款小说大纲。请严格按照用户要求的JSON格式返回结果。", 0.9)
         return self.extract_json_from_response(res)
 
     def generate_volume_chapters(self, outline: Dict, volume_index: int, chapter_count: int) -> Optional[Dict]:
@@ -648,7 +699,7 @@ class NovelGenerator:
 {self.style_guide}
 
 【本特定任务风格要求】(优先级最高)
-{task.get("write_style", "精彩网文")}
+{outline["作品概述"].get("文风", "精彩网文")}
 
 【本章特别要求】
 1. **{start_requirement}**
@@ -1006,6 +1057,30 @@ class NovelGenerator:
             except:
                 pass
 
+def run_single_task_worker(task_data: Dict, task_id: int, csv_path: str, deepseek_key: str, dmx_key: str, gen_cover: bool):
+    """
+    独立的工作进程函数：负责初始化环境并执行单个任务
+    """
+    # 1. 重新初始化客户端 (因为 API Client 可能无法跨进程 pickle)
+    llm = DeepSeekClient(api_key=deepseek_key, base_url="https://api.deepseek.com", model_name="deepseek-chat")
+    dmx = DMXImageAPIGenerator(api_key=dmx_key) if gen_cover and dmx_key else None
+    
+    # 2. 初始化生成器
+    generator = NovelGenerator(llm, dmx, csv_path)
+    
+    # 3. 更新状态并执行
+    # 注意：这里可能有多进程同时写CSV的风险，但 pandas 读写通常够快，暂时忽略锁
+    generator.update_task_csv(csv_path, task_id, status=1, gen_start=True)
+    
+    try:
+        success = generator.process_task(task_data, task_id)
+        final_status = 2 if success else 3
+        generator.update_task_csv(csv_path, task_id, status=final_status, gen_end=True)
+        return f"Task {task_id}: Success"
+    except Exception as e:
+        generator.update_task_csv(csv_path, task_id, status=3)
+        return f"Task {task_id}: Failed ({e})"
+
 # ======================== 主入口 (保持不变) ========================
 def main():
     # 加载 .env 文件
@@ -1051,22 +1126,72 @@ def main():
     )
 
     df = pd.read_csv(args.tasks_csv_path)
+
+    # target_task_ids = []
+    # if args.task_ids:
+    #     for p in args.task_ids.split(','):
+    #         if '-' in p: s,e = map(int, p.split('-')); target_task_ids.extend(range(s,e+1))
+    #         else: target_task_ids.append(int(p))
+            
+    # for idx, row in df.iterrows():
+    #     tid = row.get('task_id', idx+1)
+    #     if target_task_ids and tid not in target_task_ids: continue
+    #     if row.get('status') == 2: 
+    #         print(f"Skipping completed task_id={tid}")
+    #         continue
+        
+    #     generator.update_task_csv(args.tasks_csv_path, tid, status=1, gen_start=True)
+    #     success = generator.process_task(row.to_dict(), tid)
+    #     generator.update_task_csv(args.tasks_csv_path, tid, status=2 if success else 3, gen_end=True)
+
+    # 筛选需要执行的任务
     target_task_ids = []
     if args.task_ids:
         for p in args.task_ids.split(','):
             if '-' in p: s,e = map(int, p.split('-')); target_task_ids.extend(range(s,e+1))
             else: target_task_ids.append(int(p))
             
+    tasks_to_run = []
     for idx, row in df.iterrows():
         tid = row.get('task_id', idx+1)
         if target_task_ids and tid not in target_task_ids: continue
         if row.get('status') == 2: 
             print(f"Skipping completed task_id={tid}")
             continue
+        tasks_to_run.append((tid, row.to_dict()))
+
+    if not tasks_to_run:
+        print("没有需要执行的任务。")
+        return
+
+    print(f"🚀 准备并发执行 {len(tasks_to_run)} 个任务...")
+    print(f"⚠️ 注意：并发数过多可能导致 API Rate Limit 报错，建议 deepseek 并发不超过 5-10")
+
+    # 🟢 [核心修改] 使用 ProcessPoolExecutor 进行多进程并发
+    # max_workers = 2 : 同时跑 2 本书 (根据你的 API 额度调整)
+    max_workers = 2
+    
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = []
+        for tid, task_data in tasks_to_run:
+            # 提交任务到进程池
+            f = executor.submit(
+                run_single_task_worker,
+                task_data, 
+                tid, 
+                args.tasks_csv_path, 
+                deepseek_api_key, 
+                dmx_api_key, 
+                args.gen_cover
+            )
+            futures.append(f)
         
-        generator.update_task_csv(args.tasks_csv_path, tid, status=1, gen_start=True)
-        success = generator.process_task(row.to_dict(), tid)
-        generator.update_task_csv(args.tasks_csv_path, tid, status=2 if success else 3, gen_end=True)
+        # 等待所有任务完成
+        for f in futures:
+            try:
+                print(f.result())
+            except Exception as e:
+                print(f"Worker Exception: {e}")
 
 if __name__ == "__main__":
     main()
