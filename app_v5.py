@@ -23,8 +23,8 @@ from dotenv import load_dotenv
 # ======================== 日志类 ========================
 class Logger(object):
     def __init__(self, log_file_path: str, task_config: Dict):
-        self.log_file_path = log_file_path # os.path.join(log_dir, f"task_{task_id}.log")
-        self.terminal = sys.__stdout__ 
+        self.log_file_path = log_file_path
+        self.terminal = sys.__stdout__
         self.write_in_terminal = False
         self.log = open(self.log_file_path, 'a', encoding='utf-8')
         print(f"📄 [Logger] 日志文件目标: {self.log_file_path}")
@@ -125,7 +125,6 @@ class DMXImageAPIGenerator:
         return None
 
 # ======================== AI 小说生成器类 ========================
-
 class NovelGenerator:
     def __init__(self, llm_client: DeepSeekClient, img_generator: DMXImageAPIGenerator, tasks_csv_path: str):
         # 🟢 1. 接收外部传入的 client 实例
@@ -144,7 +143,32 @@ class NovelGenerator:
 
         self.cover_nums = 4
         self.cover_size = "800x1066"
-        
+
+        # 🟢 [新增] 上下文回溯配置
+        self.context_prev_vol_num = 10  # 往前回顾多少卷
+        self.context_prev_chap_num = 3  # 往前回顾多少章
+
+        # 🟢 [新增] 爆款网文风格指导 (System Prompt 核心)
+#         self.style_guide = """
+# 【核心写作法则】
+# 1. **黄金三秒法则**：每一章（尤其是第一章）的开头第一段必须有强烈的冲突、悬念或槽点，禁止通过环境描写开篇，直接切入事件或对话。
+# 2. **人设极致化**：主角不要苦大深仇，要带有“精神状态美丽”的特质（如：腹黑、发癫、脑回路清奇、甚至有点神经质）。反派禁止降智，必须高智商、有逻辑，让打脸更具爽感。
+# 3. **拒绝套路**：遇到经典桥段必须反转。优先使用“迪化流”（自我攻略）、“规则怪谈风”、“反套路”处理剧情。
+# 4. **氛围把控**：整体氛围要“中二热血”与“搞笑玩梗”并存。在紧张剧情中必须穿插冷幽默或内心戏吐槽，调节节奏。
+# 5. **对话驱动**：减少冗余的场景和心理描写，用高密度的对话推动剧情。对话要接地气、有网感、有个性。
+# 6. **爽点前置**：不要压抑太久，要有快节奏的“装逼-打脸-收获”循环。
+# """
+        # 🟢 [修改] 只保留通用的质量要求，删掉“搞笑、中二”等特定风格词
+        self.style_guide = """
+【通用白金大神写作法则】
+1. **黄金三秒法则**：每一章（尤其是第一章）的开头第一段必须有强烈的冲突、悬念或吸引力，禁止枯燥的环境描写开篇。
+2. **拒绝流水账**：禁止“起床刷牙洗脸”式的流水账。每一章必须有一个核心事件或情绪推进点。
+3. **对话驱动**：减少冗余的说明性文字，多用对话和动作推动剧情。对话要贴合人物身份，拒绝NPC式对话。
+4. **爽点节奏**：铺垫不要过长，压抑之后必须有释放（打脸、收获、破局）。
+5. **代入感**：多描写感官细节（视觉、听觉、触觉），让读者身临其境。
+6. **逻辑自洽**：虽然情节可以反转，但人物的基本行为逻辑必须符合其人设。
+"""
+
         # 初始化 Logger 配置 (保持原样，或者放在 main 中也可，这里保留以防万一)
         logging.basicConfig(
             level=logging.INFO,
@@ -156,10 +180,15 @@ class NovelGenerator:
 
     def extract_json_from_response(self, text: str) -> Optional[Dict]:
         if not text: return None
-        try: 
+        
+        # 🟢 [修改] 尝试解析，如果失败，记录原始文本以便调试
+        try:
+            # 1. 尝试直接解析
             return json.loads(text)
-        except (json.JSONDecodeError, ValueError): 
+        except (json.JSONDecodeError, ValueError):
             pass
+            
+        # 2. 尝试提取 Markdown 代码块
         patterns = [r'```json\s*([\s\S]*?)\s*```', r'```\s*([\s\S]*?)\s*```']
         for p in patterns:
             m = re.search(p, text)
@@ -168,58 +197,73 @@ class NovelGenerator:
                     return json.loads(m.group(1))
                 except (json.JSONDecodeError, ValueError): 
                     continue
+        
+        # 3. 尝试寻找最外层的大括号
         try:
             s, e = text.find('{'), text.rfind('}')
             if s != -1 and e != -1: 
-                return json.loads(re.sub(r',(\s*[}\]])', r'\1', text[s:e+1]))
+                # 尝试修复常见的尾部逗号问题
+                json_str = text[s:e+1]
+                json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
+                return json.loads(json_str)
         except (json.JSONDecodeError, ValueError): 
             pass
+            
+        # 🟢 [新增] 如果所有方法都失败，打印错误日志
+        self.logger.error(f"❌ JSON解析彻底失败。原始返回内容如下:\n{text[:500]}...\n(后略)")
         return None
 
     # ======================== 大纲生成与修复模块 ========================
 
     def generate_global_settings(self, task: Dict) -> Optional[Dict]:
-        # (Prompt 保持不变，省略以节省空间)
-        prompt = f'''请参考网络热门或者排行榜靠前的{task["novel_type"]}小说的设定和剧情爽点，写一部小说。
+        prompt = f'''你是一位不仅精通爽文套路，更擅长“反套路”和“脑洞文”的顶尖网文大神。
+请根据以下要求，构思一部甚至能霸榜的{task["novel_type"]}小说。
 
-小说想法：{task["novel_idea"]}
-文风：{task["write_style"]}
-目标读者：{task["target_reader"]}
-小说结构：共{task["volume_num"]}卷，每卷{task["chapter_num"]}章，每章约{task["word_num"]}字
-特殊要求：{task["special_requirements"]}
+【基础信息】
+- 创意/脑洞：{task["novel_idea"]}
+- 目标受众：{task["target_reader"]} (偏好快节奏、高爽点、有趣味)
+- 结构：共{task["volume_num"]}卷，每卷{task["chapter_num"]}章，每章约{task["chapter_word_num"]}字
+- 备注：{task["note"]}
 
-请生成小说的宏观设定，严格返回以下JSON格式（不要有任何额外说明）：
+【通用质量标准】
+{self.style_guide}
 
+【本特定任务风格要求】(优先级最高)
+{task.get("write_style", "精彩网文")}
+
+【任务要求】
+请生成小说的宏观设定，严格返回以下JSON格式：
 {{
   "作品概述": {{
-    "小说标题": "《xxx》",
+    "小说标题": "《取一个极具网感、吸引眼球的标题》",
     "小说副标题": "xxx",
-    "小说简介": "该小说讲述了xxx的故事",
+    "小说简介": "写一个黄金三章式的简介，突出金手指、核心矛盾和爽点，让人看一眼就想点进去",
     "类型": "{task["novel_type"]}",
-    "文风": "{task["write_style"]}",
     "核心爽点和创意": "xxx",
     "市场分析与亮点总结": "xxx",
     "小说卷数": {task["volume_num"]},
     "小说章数": {task["chapter_num"]},
-    "每章字数约": {task["word_num"]}
+    "每章字数约": {task["chapter_word_num"]}
   }},
   "核心设定与人物": {{
     "1": {{
-      "姓名": "xxx",
-      "身份/职位": "xxx",
+      "姓名": "xxx (主角)",
+      "身份": "xxx",
       "年龄": "xx岁",
       "外貌特征": "xxx",
-      "核心性格": "xxx",
-      "成长弧光": "xxx",
+      "核心性格": "用3个词形容 (如: 究极咸鱼、被迫害妄想症、逻辑鬼才)",
+      "金手指/能力": "详细描述系统的功能或特殊能力",
+      "口头禅/标志性动作": "xxx",
       "与主角关系": "主角"
     }},
     "2": {{
-      "姓名": "xxx",
-      "身份/职位": "xxx",
+      "姓名": "xxx（高智商反派/重要配角）",
+      "身份": "xxx",
       "年龄": "xx岁",
       "外貌特征": "xxx",
-      "核心性格": "xxx",
-      "成长弧光": "xxx",
+      "核心性格": "拒绝脸谱化，要有独特魅力或执念",
+      "金手指/能力": "详细描述系统的功能或特殊能力（若没有，可以填无）",
+      "口头禅/标志性动作": "xxx（若没有，可以填无）",
       "与主角关系": "xxx"
     }}
   }},
@@ -243,11 +287,12 @@ class NovelGenerator:
 
 重要：
 1. 根据卷数{task["volume_num"]}，生成对应数量的卷大纲（注意：此步骤不生成章大纲，章大纲会在后续步骤按卷生成）
-2. 人物至少3-5个主要角色，每个角色要有完整的设定
+2. 人物至少5-10个主要角色，每个角色要有完整的设定，人物关系要错综复杂
 3. 只返回JSON，不要任何其他内容
 '''
         self.logger.info("正在生成宏观设定（含作品概述、人物设定、卷大纲）...")
-        res = self.llm.call(prompt, "你是一位专业的网络小说策划师，擅长创作热门爆款小说大纲。请严格按照用户要求的JSON格式返回结果。", 0.9)
+        # 🟢 [修改] temperature=1.0 (最大化脑洞)
+        res = self.llm.call(prompt, "你是一位专业的网络小说策划师，擅长创作热门爆款小说大纲。请严格按照用户要求的JSON格式返回结果。", 1.0)
         return self.extract_json_from_response(res)
 
     def generate_volume_chapters(self, outline: Dict, volume_index: int, chapter_count: int) -> Optional[Dict]:
@@ -271,7 +316,7 @@ class NovelGenerator:
         for k, v in all_volumes.items():
             vol_structure += f"第{k}卷：{v.get('本卷标题', '')} (冲突：{v.get('本卷核心冲突', '')})\n"
 
-        prompt = f'''你是一位专业的网文大纲师。请根据以下详尽的设定资料，为小说《{overview.get("小说标题")}》的**第{volume_index}卷**创作详细的分章大纲。
+        prompt = f'''你是一位对剧情节奏把控极强的网文主编。请基于以下设定，为《{overview.get("小说标题")}》第{volume_index}卷创作分章细纲。
 
 【全局设定】
 - 类型/文风：{overview.get("类型")} / {overview.get("文风")}
@@ -290,28 +335,32 @@ class NovelGenerator:
 - 本卷关键情节：{current_vol_info.get("本卷关键情节", "")}
 
 【生成要求】
-1. 必须生成本卷完整的 **{chapter_count}** 个章节。
-2. 严格遵循JSON格式，Key为 "卷数-章数"（如 "{volume_index}-1"）。
-3. 每一章必须包含：标题、核心情节梗概（至少3个具体事件点）、关键冲突/爽点。
-4. **剧情连贯性**：第一章要承接上一卷（或开篇），最后一章要为下一卷埋伏笔。
+1. **生成数量**：必须生成本卷完整的 **{chapter_count}** 个章节。
+2. **剧情逻辑**：情节发展要意料之外情理之中，利用“信息差”制造爽点（迪化流）。
+3. **拒绝水文**：每一章必须有一个具体的“事件钩子”或“笑点/爽点”，禁止平铺直叙。
+4. **连贯性**：
+   - 第一章：如果是全书开头，必须遵循“黄金三秒”，直接切入冲突。如果是卷首，要承接上卷余韵并开启新地图。
+   - 每一章结尾：必须留有“小钩子”（悬念），让人忍不住点下一章。
 5. 返回JSON的键名称一定要跟下面JSON模版的键名称保持一致，例如返回"本章关键冲突/爽点"，而不是“本章关键冲突/爽点补充”
 
-请返回JSON数据：
+请返回JSON数据 (Key格式 "{volume_index}-1"):
 {{
   "{volume_index}-1": {{
     "本章所属卷次": "{volume_index}",
     "本章次": "1",
-    "本章标题": "xxx",
-    "本章核心情节梗概": "1.主角... 2.反派... 3.结果...",
-    "本章关键冲突/爽点": "xxx",
-    "本章人物发展/系统奖励": "xxx"
+    "本章标题": "取一个有噱头、让人想点击的标题",
+    "本章核心情节梗概": "1. 开篇即高能... 2. 主角骚操作... 3. 反派自我脑补...",
+    "本章关键冲突/爽点": "具体描述打脸或震惊的瞬间",
+    "本章伏笔/悬念": "结尾留下的悬念"
   }}
-  // ... 请务必生成到 {volume_index}-{chapter_count}
+  // ...
 }}
 '''
+
         self.logger.info(f"正在基于完整设定生成第 {volume_index} 卷的章详细大纲 (共{chapter_count}章)...")
         system_prompt = "你是一位严谨的小说主编，擅长把控长篇小说的剧情结构和人物逻辑一致性。"
-        res = self.llm.call(prompt, system_prompt, temperature=0.85)
+        # 🟢 [修改] temperature=0.95 (增加剧情变数和精彩度)
+        res = self.llm.call(prompt, system_prompt, temperature=0.95)
         return self.extract_json_from_response(res)
 
     def check_and_fix_outline(self, outline: Dict, task: Dict, outline_path: str, novel_dir: str) -> Tuple[Dict, bool]:
@@ -482,40 +531,96 @@ class NovelGenerator:
         return excel_path
 
     # ======================== 内容生成模块 ========================
-
     def build_chapter_context(self, outline: Dict, volume_num: int, chapter_num: int, prev_chapters: list) -> Tuple[str, str]:
-        # (保持不变)
-        volume_info = outline.get("卷详细大纲", {}).get(str(volume_num), {})
-
+        """
+        构建生成当前章节所需的完整上下文Prompt
+        """
+        # 1. 获取当前章大纲
         chapter_key = f"{volume_num}-{chapter_num}"
-        chapters = outline.get("章详细大纲", {})
-        chapter_outline = chapters.get(chapter_key, {})
+        chapters_outline = outline.get("章详细大纲", {})
+        curr_chap_data = chapters_outline.get(chapter_key, {})
         
-        if not chapter_outline:
+        if not curr_chap_data:
             chapter_title = f"第{chapter_num}章"
             core_plot = "剧情自由发展"
+            conflict = "未知"
         else:
-            chapter_title = chapter_outline.get("本章标题", f"第{chapter_num}章")
-            core_plot = chapter_outline.get("本章核心情节梗概", "")
+            chapter_title = curr_chap_data.get("本章标题", f"第{chapter_num}章")
+            core_plot = curr_chap_data.get("本章核心情节梗概", "")
+            conflict = curr_chap_data.get("本章关键冲突/爽点", "")
 
+        # 2. 构建【作品概述】(JSON)
+        overview_data = outline.get("作品概述", {})
+        overview_json = json.dumps(overview_data, ensure_ascii=False, indent=2)
+
+        # 3. 构建【核心设定与人物】(JSON)
+        characters_data = outline.get("核心设定与人物", {})
+        characters_json = json.dumps(characters_data, ensure_ascii=False, indent=2)
+
+        # 4. 构建【之前卷信息】(Text)
+        # 获取所有卷数据
+        all_volumes = outline.get("卷详细大纲", {})
+        prev_volumes_text = ""
+        
+        # 计算起始卷：当前卷 - 回溯卷数，最小为第1卷
+        start_vol = max(1, volume_num - self.context_prev_vol_num)
+        # 遍历范围：[start_vol, volume_num - 1]
+        if start_vol < volume_num:
+            for v in range(start_vol, volume_num):
+                v_str = str(v)
+                if v_str in all_volumes:
+                    v_data = all_volumes[v_str]
+                    prev_volumes_text += f"第{v}卷：{v_data.get('本卷标题', '')}\n"
+                    prev_volumes_text += f"  - 核心冲突：{v_data.get('本卷核心冲突', '')}\n"
+                    prev_volumes_text += f"  - 关键情节：{v_data.get('本卷关键情节', '')}\n"
+                    prev_volumes_text += f"  - 目标：{v_data.get('本卷目标', '')}\n\n"
+        
+        if not prev_volumes_text:
+            prev_volumes_text = "（无前序卷信息）"
+
+        # 5. 构建【当前卷信息】(Text)
+        curr_vol_data = all_volumes.get(str(volume_num), {})
+        curr_volume_text = f"第{volume_num}卷：{curr_vol_data.get('本卷标题', '')}\n"
+        curr_volume_text += f"核心冲突：{curr_vol_data.get('本卷核心冲突', '')}\n"
+        curr_volume_text += f"关键情节：{curr_vol_data.get('本卷关键情节', '')}\n"
+        curr_volume_text += f"目标：{curr_vol_data.get('本卷目标', '')}"
+
+        # 6. 构建【前情提要】(Text - 最近N章)
+        prev_chapters_text = ""
+        if prev_chapters:
+            # 取最后 N 章
+            recent_chapters = prev_chapters[-self.context_prev_chap_num:]
+            for prev in recent_chapters:
+                # 兼容旧数据 key 可能不同的情况
+                p_vol = prev.get('volume', prev.get('roll', '?'))
+                p_chap = prev.get('chapter', '?')
+                p_sum = prev.get('本章总结', prev.get('summary', ''))
+                prev_chapters_text += f"第{p_vol}卷{p_chap}章：{p_sum}\n"
+        else:
+            prev_chapters_text = "（这是本书的第一章，无前情提要）"
+
+        # 7. 组装最终 Context
         context = f"""
-【小说概览】
-小说标题：{outline.get("作品概述", {}).get("小说标题")}
+【作品概述】
+{overview_json}
+
+【核心设定与人物】
+{characters_json}
+
+【之前卷信息】(回顾最近{self.context_prev_vol_num}卷)
+{prev_volumes_text.strip()}
 
 【当前卷信息】
-本卷标题：{volume_info.get("本卷标题", "")}
-本卷关键情节：{volume_info.get("本卷关键情节", "")}
+{curr_volume_text}
+
+【前情提要】(回顾最近{self.context_prev_chap_num}章)
+{prev_chapters_text.strip()}
 
 【本章大纲】
-章节：第{volume_num}卷 第{chapter_num}章《{chapter_title}》
+当前章节：第{volume_num}卷 第{chapter_num}章《{chapter_title}》
 核心情节：{core_plot}
-关键冲突：{chapter_outline.get("本章关键冲突/爽点", "")}
+关键冲突：{conflict}
 """
-        if prev_chapters:
-            context += "\n【前情提要】\n"
-            for prev in prev_chapters[-3:]:
-                context += f"第{prev['volume']}卷{prev['chapter']}章：{prev['本章总结']}\n"
-                
         return context, chapter_title
 
     def post_process_content(self, content: str, volume: int, chapter: int, title: str) -> str:
@@ -527,15 +632,41 @@ class NovelGenerator:
                 processed.append(f"{'\u3000' * self.indent_size}{line}\n")
         return "\n".join(processed)
 
-    def generate_chapter(self, outline: Dict, volume: int, chapter: int, prev_chapters: list, word_num: int) -> Tuple[Optional[str], Optional[str]]:
+    def generate_chapter(self, outline: Dict, volume: int, chapter: int, prev_chapters: list, chapter_word_num: int) -> Tuple[Optional[str], Optional[str]]:
         context, title = self.build_chapter_context(outline, volume, chapter, prev_chapters)
         
+        # 判断是否是全书第一章，如果是，加强开篇要求
+        is_first_chapter = (volume == 1 and chapter == 1)
+        start_requirement = "请注意：这是全书第一章！第一段话必须是“黄金三秒”，直接抛出巨大的悬念、冲突或极其荒谬的场景，死死抓住读者眼球！" if is_first_chapter else "开头不要废话，紧接上一章结尾或直接切入本章核心事件。"
+
         prompt = f"""{context}
-请撰写正文（约{word_num}字）。
-要求：场景描写细腻，对话符合人设，严禁流水账。
-格式：正文结束后，换行输出 "{self.chapter_summary_separator}"，再写300字摘要。
+
+【写作指令】
+你现在就是网文界的“大神作家”，请根据大纲撰写正文（字数要求：{chapter_word_num}字左右）。
+
+【通用质量标准】
+{self.style_guide}
+
+【本特定任务风格要求】(优先级最高)
+{task.get("write_style", "精彩网文")}
+
+【本章特别要求】
+1. **{start_requirement}**
+2. **场景描写**：只写必要场景，多用动词，少用形容词。
+3. **对话互动**：对话要像“网聊”一样有梗，人物之间要有拉扯感。主角内心戏可以适当发癫（中二/吐槽）。
+4. **逻辑自洽**：虽然情节可以荒诞有趣，但人物的行为逻辑必须符合其人设（尤其是高智商反派，不要强行降智）。
+
+【格式要求】
+正文结束后，换行输出 "{self.chapter_summary_separator}"。
+然后写一段**功能性摘要**（300字以内），摘要必须包含：
+- 本章发生的关键剧情转折。
+- 主角获得的物品/能力/信息（如有）。
+- 人物关系的重要变化（如有）。
+- 留下的悬念（供下一章参考）。
 """
+
         self.logger.info(f"正在生成: {volume}-{chapter} {title}")
+        # 🟢 [修改] temperature=0.85 (保持稳定输出，防止正文逻辑崩坏)
         res = self.llm.call(prompt, "你是一位网文大神。", 0.85)
         if not res: return None, None
         
@@ -748,7 +879,36 @@ class NovelGenerator:
                 self.save_outline_to_excel(outline, novel_dir, novel_title)
             
             self.update_task_csv(self.tasks_csv_path, task_id, outline_done=1)
-            
+
+            # 生成封面
+            if self.img_generator:
+                self.logger.info(f"🔄 正在生成小说封面...")
+                cover_save_dir = os.path.join(novel_dir, "cover")
+                if not os.path.exists(cover_save_dir):
+                    os.makedirs(cover_save_dir)
+                if len(os.listdir(cover_save_dir)) != self.cover_size:
+                    cover_prompt = f"""
+                    {outline.get("作品概述", {})}
+                    这是我在番茄小说上发布的小说的基本信息，帮我生成一个封面海报，画风是动漫的，你可以参考排行榜较前的风格，我的目的是大家看到封面之后，有吸引力，能点进来阅读，封面标题必须与小说标题一致（不要有错字），且封面尺寸为{self.cover_size}竖版
+                    """
+                    for c in range(self.cover_nums):
+                        image_url = self.img_generator.generate_image(
+                            prompt=cover_prompt,
+                            size=self.cover_size,
+                        )
+                        image_path = os.path.join(cover_save_dir, f"{c}.png")
+                        # Download the image from the URL and save it
+                        try:
+                            response = requests.get(image_url, stream=True)
+                            response.raise_for_status()  # Check if the request was successful
+
+                            with open(image_path, "wb") as f:
+                                for chunk in response.iter_content(chunk_size=8192):
+                                    f.write(chunk)  # Write the image data to the file
+                            print(f"Image {c} saved at {image_path}")
+                        except requests.exceptions.RequestException as e:
+                            print(f"Error downloading image {c}: {e}")
+
             content_dir = os.path.join(novel_dir, "content")
             os.makedirs(content_dir, exist_ok=True)
             
@@ -788,7 +948,7 @@ class NovelGenerator:
                         is_volume_dirty = True
                         continue
                     
-                    content, chapter_summary = self.generate_chapter(outline, r, c, prev_chapters, int(task["word_num"]))
+                    content, chapter_summary = self.generate_chapter(outline, r, c, prev_chapters, int(task["chapter_word_num"]))
                     
                     # [修改] 计算字数
                     content_len = len(content) if content else 0
@@ -812,34 +972,6 @@ class NovelGenerator:
                     self.logger.info(f"🔄 正在更新第 {r} 卷的统计信息...")
                     self.update_volume_progress(excel_path, r)
             
-            # 生成封面
-            if self.img_generator:
-                self.logger.info(f"🔄 正在生成小说封面...")
-                cover_save_dir = os.path.join(novel_dir, "cover")
-                if not os.path.exists(cover_save_dir):
-                    os.makedirs(cover_save_dir)
-                if len(os.listdir(cover_save_dir)) != self.cover_size:
-                    cover_prompt = f"""
-                    {outline.get("作品概述", {})}
-                    这是我在番茄小说上发布的小说的基本信息，帮我生成一个封面海报，画风是动漫的，你可以参考排行榜较前的风格，我的目的是大家看到封面之后，有吸引力，能点进来阅读，封面标题必须与小说标题一致（不要有错字），且封面尺寸为{self.cover_size}竖版
-                    """
-                    for c in range(self.cover_nums):
-                        image_url = self.img_generator.generate_image(
-                            prompt=cover_prompt,
-                            size=self.cover_size,
-                        )
-                        image_path = os.path.join(cover_save_dir, f"{c}.png")
-                        # Download the image from the URL and save it
-                        try:
-                            response = requests.get(image_url, stream=True)
-                            response.raise_for_status()  # Check if the request was successful
-
-                            with open(image_path, "wb") as f:
-                                for chunk in response.iter_content(chunk_size=8192):
-                                    f.write(chunk)  # Write the image data to the file
-                            print(f"Image {c} saved at {image_path}")
-                        except requests.exceptions.RequestException as e:
-                            print(f"Error downloading image {c}: {e}")
 
             self.logger.info(f"任务结束: {task_id}")
             self.zip_novel_folder(novel_dir)

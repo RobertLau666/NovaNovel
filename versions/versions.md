@@ -39,7 +39,8 @@
 20. 加上app_gradio.py
 
 ## app_v5.py 202602031124
-1. 待修改prompt
+1. 完善build_chapter_context函数
+2. 优化各处prompt
 
 
 
