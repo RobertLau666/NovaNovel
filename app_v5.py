@@ -941,7 +941,7 @@ class NovelGenerator:
 【节奏调控指令】
 {pacing_instruction}
 
-【其他风格要求】
+【其他文风要求】
 {outline["作品概述"].get("文风", "精彩网文")}
 
 【本章特别要求】
