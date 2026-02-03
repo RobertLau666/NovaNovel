@@ -5,10 +5,10 @@
 ## Set API Key
 Create ```.env``` in project root dir.
 ```
-# Used [DEEPSEEK](https://platform.deepseek.com/usage) to generate novel content
+# Use [DEEPSEEK](https://platform.deepseek.com/usage) to generate novel content.
 DEEPSEEK_API_KEY=sk-xxxxxxxxxx
 
-# Used [DMX](https://www.dmxapi.com/console) to generate novel cover
+# Use [DMX](https://www.dmxapi.com/console) to generate novel cover.
 DMX_API_KEY=sk-xxxxxxxxxx
 ```
 
@@ -47,7 +47,7 @@ task_id,novel_type,novel_idea,write_style,target_reader,special_requirements,rol
 - Windows users:
 1. Just double-click ```start.bat```. Or if you have installed Git Bash, you can right-click and select ```Git Bash Here``` then run ```./start.sh```.
 
-## Manual installation
+## Manual Start
 ### Install
 ```bash
 # 1. Clone repository
@@ -68,7 +68,6 @@ python app.py -i 1                       # Only process task_id=1
 python app.py -i 1,3,6                   # Process task_id=1,3,6
 python app.py -i 3-6                     # Process task_id=3,4,5,6
 python app.py -i 1,3-5,8                 # Mixed format: task_id=1,3,4,5,8
-python app.py --deepseek-api-key sk-xxx  # Specify DeepSeek API Key
 python app.py -f tasks.csv               # Specify task file
 python app.py -i 1 --gen-cover           # Only process task_id=1, use cover generation
 ```
@@ -96,14 +95,15 @@ novels/
 └── task_[id].zip          # Package .zip file
 ```
 
-## Content expansion
+## Postprocess
+### Content expansion
 Use [ChatGPT](https://chatgpt.com/) to expand content, prompt is as follows:
 ```
 ***
 这段内容的字数约3770左右，扩写到4000字，并且说明在哪里插入什么内容”
 ```
 
-## Novel Cover Generation
+### Novel Cover Generation
 1. Use [豆包](https://www.doubao.com/chat/) to generate cover, '图像生成' - 'Seedream 4.5', prompt is as follows:
 ```
 ***
@@ -115,4 +115,7 @@ Use [ChatGPT](https://chatgpt.com/) to expand content, prompt is as follows:
 ```
 
 ## Release
-Release on [番茄小说网](https://fanqienovel.com/).
+Release the generated novel on [番茄小说网](https://fanqienovel.com/).
+
+## Reference
+1. Code version update information: [versions.md](versions/versions.md)
