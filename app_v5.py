@@ -1174,7 +1174,7 @@ class NovelGenerator:
             with open(outline_path, 'w', encoding='utf-8') as f:
                 json.dump(outline, f, ensure_ascii=False, indent=2)
 
-            novel_title = outline.get("作品概述", {}).get("小说标题", f"Task_{task_id}")
+            novel_title = outline.get("作品概述", {}).get("小说标题", f"task_{task_id}")
             excel_path = os.path.join(novel_dir, "outline.xlsx")
             
             if not os.path.exists(excel_path):
