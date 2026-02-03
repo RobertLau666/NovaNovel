@@ -23,9 +23,9 @@ Edit `*.csv` and put it under dir ```novel_gen_tasks/```.
 | write_style          | Writing Style                    | 轻松幽默、热血燃爆、搞笑、中二、腹黑       |
 | target_reader        | Target Readers                   | 男性、女性                             |
 | note                 | Note                             | 每章结尾留悬念                         |
-| volume_num           | Number of Volumes                | 2                                    |
-| chapter_num          | Chapters per Volume              | 5                                    |
-| chapter_word_num     | Words per Chapter                | 2000                                 |
+| volume_num           | Number of Volumes                | 10                                    |
+| chapter_num          | Chapters per Volume              | 80                                    |
+| chapter_word_num     | Words per Chapter                | 2100                                 |
 | status               | Status                           | 0=Pending, 1=Generating, 2=Completed |
 | outline_done         | Outline Completion               | 0=Incomplete, 1=Completed            |
 | novel_gen_start_time | Novel Generation Start Time      | Auto-filled                          |
@@ -51,18 +51,18 @@ Or you can ask [Google AI Studio](https://aistudio.google.com/) for novel genera
 4. **排序**：按照“预计火爆程度”从高到低排序（Task 1 为最火）。
 
 # Column Definition (详细要求):
-- **novel_idea**: (重点) 必须在100-200字之间。要包含：主角背景（如废柴/穿越者/重生者）、金手指具体功能（如：只有我能看到隐藏提示）、核心主线（如：抵抗万族入侵）、以及一个具体的“钩子”剧情（开篇前三章的高潮点）。
+- **novel_idea**: (重点) 必须在150-200字之间。要包含：主角背景（如废柴/穿越者/重生者）、金手指具体功能（如：只有我能看到隐藏提示）、核心主线（如：抵抗万族入侵）、以及一个具体的“钩子”剧情（开篇前三章的高潮点）。
 - **write_style**: 关键词堆砌，不少于5个。例如：迪化, 老六, 杀伐果断, 腹黑, 多女主, 稳健流, 极道, 诡异, 赛博朋克, 轻松搞笑, 脑洞大开。
 - **target_reader**: 男性/女性/通用。
 - **note**: 给生成器的特别指令，如：每章结尾必须断章在悬念处，前三章节奏要快。
-- **其他数值**: volume_num(固定10), chapter_num(固定80), chapter_word_num(固定2500), status(0), outline_done(0), novel_gen_start_time(留空), novel_gen_end_time(留空)。
+- **其他数值**: volume_num(固定10), chapter_num(固定80), chapter_word_num(固定2100), status(0), outline_done(0), novel_gen_start_time(留空), novel_gen_end_time(留空)。
 
 # Output Format:
 请输出且仅输出一个CSV格式的代码块，表头如下：
 task_id,novel_type,novel_idea,write_style,target_reader,note,volume_num,chapter_num,chapter_word_num,status,outline_done,novel_gen_start_time,novel_gen_end_time
 
 # Example Row (参考风格，不要完全照抄):
-1,都市异能,全球异变，所有人类随机获得一个debuff，主角重生成为唯一没有副作用的“净化者”。开局被校花嫌弃，反手觉醒S级天赋“吞噬万物”，只要吃掉诡异生物就能无限叠加属性。全世界强者跪求主角出手，主角却在直播做菜。,杀伐果断,系统,灵气复苏,直播,无敌流,爽文,装逼打脸,男性,重点描写主角扮猪吃虎的心理活动，反派智商在线但被主角降维打击,10,80,2500,0,0,,
+1,都市异能,全球异变，所有人类随机获得一个debuff，主角重生成为唯一没有副作用的“净化者”。开局被校花嫌弃，反手觉醒S级天赋“吞噬万物”，只要吃掉诡异生物就能无限叠加属性。全世界强者跪求主角出手，主角却在直播做菜。,杀伐果断,系统,灵气复苏,直播,无敌流,爽文,装逼打脸,男性,重点描写主角扮猪吃虎的心理活动，反派智商在线但被主角降维打击,10,80,2100,0,0,,
 
 现在，请开始你的工作，生成30条数据：
 ```
