@@ -458,7 +458,7 @@ class NovelGenerator:
                         self.logger.error(f"JSON即时保存失败: {e}")
 
                     try:
-                        self.save_outline_to_excel(outline, novel_dir, novel_title)
+                        self.save_outline_to_excel(outline, novel_dir, novel_title, task_data=task)
                     except Exception as e:
                         self.logger.error(f"Excel即时保存失败: {e}")
                 else:
@@ -466,22 +466,235 @@ class NovelGenerator:
                 
         return outline, updated
 
-    def save_outline_to_excel(self, outline: Dict, novel_dir: str, novel_title: str) -> str:
+    # def save_outline_to_excel(self, outline: Dict, novel_dir: str, novel_title: str) -> str:
+    #     """
+    #     [修改] 增强版 Excel 保存：
+    #     1. 强制指定 Sheet 顺序 (作品概述 -> 人物 -> 卷 -> 章)
+    #     2. 自动添加列 “本章字数“, “本卷完成情况“, “本卷字数”
+    #     3. 严格保留历史数据
+    #     """
+    #     excel_path = os.path.join(novel_dir, "outline.xlsx")
+        
+    #     old_chapter_data = {}
+    #     old_volume_data = {}
+
+    #     # === 1. 备份旧数据 (保持不变) ===
+    #     if os.path.exists(excel_path):
+    #         try:
+    #             # 备份章进度
+    #             old_ch_df = pd.read_excel(excel_path, sheet_name="章详细大纲", index_col=0, dtype=object)
+    #             for idx, row in old_ch_df.iterrows():
+    #                 if self.is_chapter_done(row.get('本章完成情况', 0)):
+    #                     old_chapter_data[str(idx)] = {
+    #                         '本章完成情况': 1,
+    #                         '本章总结': row.get('本章总结', ''),
+    #                         '本章字数': row.get('本章字数', 0)
+    #                     }
+    #             # 备份卷进度
+    #             try:
+    #                 old_vol_df = pd.read_excel(excel_path, sheet_name="卷详细大纲", index_col=0, dtype=object)
+    #                 for idx, row in old_vol_df.iterrows():
+    #                      old_volume_data[str(idx)] = {
+    #                          '本卷完成情况': row.get('本卷完成情况', 0),
+    #                          '本卷字数': row.get('本卷字数', 0)
+    #                      }
+    #             except: pass
+    #         except Exception as e:
+    #             self.logger.warning(f"读取旧Excel状态时遇到小问题: {e}")
+
+    #     # === 2. 写入新数据 (修改循环逻辑) ===
+    #     with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+            
+    #         # ✅ [关键修改] 定义期望的 Sheet 顺序
+    #         target_order = ["作品概述", "核心设定与人物", "卷详细大纲", "章详细大纲"]
+            
+    #         # 获取大纲中实际存在的所有 key
+    #         existing_keys = list(outline.keys())
+            
+    #         # 构建有序列表：先放 target_order 里的，再放剩余没见过的
+    #         sorted_keys = []
+    #         for k in target_order:
+    #             if k in existing_keys:
+    #                 sorted_keys.append(k)
+            
+    #         # 把不在目标顺序里的其他 Sheet (如果有) 放到最后
+    #         for k in existing_keys:
+    #             if k not in sorted_keys:
+    #                 sorted_keys.append(k)
+            
+    #         # ✅ [关键修改] 按有序列表遍历
+    #         for sheet_name in sorted_keys:
+    #             data = outline[sheet_name]
+                
+    #             # === 下面的逻辑完全保持不变 ===
+                
+    #             # Case A: 处理 "章详细大纲"
+    #             if sheet_name == "章详细大纲" and isinstance(data, dict):
+    #                 df = pd.DataFrame.from_dict(data, orient='index')
+                    
+    #                 if '本章完成情况' not in df.columns: df['本章完成情况'] = 0
+    #                 if '本章字数' not in df.columns: df['本章字数'] = 0
+    #                 if '本章总结' not in df.columns: df['本章总结'] = ''
+    #                 df['本章总结'] = df['本章总结'].astype(object)
+                    
+    #                 for idx in df.index:
+    #                     str_idx = str(idx)
+    #                     if str_idx in old_chapter_data:
+    #                         info = old_chapter_data[str_idx]
+    #                         df.at[idx, '本章完成情况'] = 1
+    #                         df.at[idx, '本章字数'] = info.get('本章字数', 0)
+    #                         if pd.notna(info.get('本章总结')):
+    #                             df.at[idx, '本章总结'] = info['本章总结']
+                    
+    #                 cols = ['本章所属卷次', '本章次', '本章标题', '本章完成情况', '本章字数', '本章总结'] 
+    #                 other_cols = [c for c in df.columns if c not in cols]
+    #                 df = df[cols + other_cols]
+    #                 df.to_excel(writer, sheet_name=sheet_name, index=True)
+
+    #             # Case B: 处理 "卷详细大纲"
+    #             elif sheet_name == "卷详细大纲" and isinstance(data, dict):
+    #                 df = pd.DataFrame.from_dict(data, orient='index')
+                    
+    #                 if '本卷完成情况' not in df.columns: df['本卷完成情况'] = 0
+    #                 if '本卷字数' not in df.columns: df['本卷字数'] = 0
+                    
+    #                 for idx in df.index:
+    #                     str_idx = str(idx)
+    #                     if str_idx in old_volume_data:
+    #                         info = old_volume_data[str_idx]
+    #                         df.at[idx, '本卷完成情况'] = info.get('本卷完成情况', 0)
+    #                         df.at[idx, '本卷字数'] = info.get('本卷字数', 0)
+                    
+    #                 df.to_excel(writer, sheet_name=sheet_name, index=True)
+
+    #             # Case C: 其他 Sheet
+    #             elif isinstance(data, dict):
+    #                 first_val = next(iter(data.values()), None)
+    #                 if isinstance(first_val, dict):
+    #                     df = pd.DataFrame.from_dict(data, orient='index')
+    #                 else:
+    #                     df = pd.DataFrame([data])
+    #                 df.to_excel(writer, sheet_name=sheet_name[:31])
+    #             else:
+    #                 pd.DataFrame([{"内容": data}]).to_excel(writer, sheet_name=sheet_name[:31])
+        
+    #     self.logger.info(f"Excel大纲结构已更新: {excel_path}")
+    #     return excel_path
+
+    # 在 NovelGenerator 类中修改此方法
+    # def save_outline_to_excel(self, outline: Dict, novel_dir: str, novel_title: str, task_data: Dict = None) -> str:
+    #     """
+    #     [修改版] 增强版 Excel 保存：
+    #     1. 增加“用户初始设定” Sheet
+    #     2. 强制指定 Sheet 顺序 (用户初始设定 -> 作品概述 -> 核心设定与人物 -> 卷详细大纲 -> 章详细大纲)
+    #     """
+    #     excel_path = os.path.join(novel_dir, "outline.xlsx")
+        
+    #     old_chapter_data = {}
+    #     old_volume_data = {}
+
+    #     # === 1. 备份旧数据 (逻辑不变) ===
+    #     if os.path.exists(excel_path):
+    #         try:
+    #             old_ch_df = pd.read_excel(excel_path, sheet_name="章详细大纲", index_col=0, dtype=object)
+    #             for idx, row in old_ch_df.iterrows():
+    #                 if self.is_chapter_done(row.get('本章完成情况', 0)):
+    #                     old_chapter_data[str(idx)] = {
+    #                         '本章完成情况': 1,
+    #                         '本章总结': row.get('本章总结', ''),
+    #                         '本章字数': row.get('本章字数', 0)
+    #                     }
+    #             try:
+    #                 old_vol_df = pd.read_excel(excel_path, sheet_name="卷详细大纲", index_col=0, dtype=object)
+    #                 for idx, row in old_vol_df.iterrows():
+    #                      old_volume_data[str(idx)] = {
+    #                          '本卷完成情况': row.get('本卷完成情况', 0),
+    #                          '本卷字数': row.get('本卷字数', 0)
+    #                      }
+    #             except: pass
+    #         except Exception as e:
+    #             self.logger.warning(f"读取旧Excel状态时遇到小问题: {e}")
+
+    #     # === 2. 准备数据并写入 ===
+    #     with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+    #         # 🟢 [关键修改] 定义期望的 Sheet 顺序，把初始设定排在第一位
+    #         target_order = ["用户初始设定", "作品概述", "核心设定与人物", "卷详细大纲", "章详细大纲"]
+            
+    #         # 构建一个临时字典存储所有要写的 Dataframe
+    #         all_sheets_to_write = {}
+
+    #         # 写入“用户初始设定”
+    #         if task_data:
+    #             all_sheets_to_write["用户初始设定"] = pd.DataFrame([task_data])
+
+    #         # 填充其他大纲数据
+    #         for k, v in outline.items():
+    #             if k == "章详细大纲":
+    #                 df = pd.DataFrame.from_dict(v, orient='index')
+    #                 if '本章完成情况' not in df.columns: df['本章完成情况'] = 0
+    #                 if '本章字数' not in df.columns: df['本章字数'] = 0
+    #                 if '本章总结' not in df.columns: df['本章总结'] = ''
+    #                 for idx in df.index:
+    #                     str_idx = str(idx)
+    #                     if str_idx in old_chapter_data:
+    #                         info = old_chapter_data[str_idx]
+    #                         df.at[idx, '本章完成情况'] = 1
+    #                         df.at[idx, '本章字数'] = info.get('本章字数', 0)
+    #                         if pd.notna(info.get('本章总结')): df.at[idx, '本章总结'] = info['本章总结']
+    #                 cols = ['本章所属卷次', '本章次', '本章标题', '本章完成情况', '本章字数', '本章总结'] 
+    #                 other_cols = [c for c in df.columns if c not in cols]
+    #                 all_sheets_to_write[k] = df[cols + other_cols]
+                
+    #             elif k == "卷详细大纲":
+    #                 df = pd.DataFrame.from_dict(v, orient='index')
+    #                 if '本卷完成情况' not in df.columns: df['本卷完成情况'] = 0
+    #                 if '本卷字数' not in df.columns: df['本卷字数'] = 0
+    #                 for idx in df.index:
+    #                     str_idx = str(idx)
+    #                     if str_idx in old_volume_data:
+    #                         info = old_volume_data[str_idx]
+    #                         df.at[idx, '本卷完成情况'] = info.get('本卷完成情况', 0)
+    #                         df.at[idx, '本卷字数'] = info.get('本卷字数', 0)
+    #                 all_sheets_to_write[k] = df
+                
+    #             elif isinstance(v, dict):
+    #                 first_val = next(iter(v.values()), None)
+    #                 all_sheets_to_write[k] = pd.DataFrame.from_dict(v, orient='index') if isinstance(first_val, dict) else pd.DataFrame([v])
+    #             else:
+    #                 all_sheets_to_write[k] = pd.DataFrame([{"内容": v}])
+
+    #         # 🟢 按顺序写入
+    #         final_keys = [ko for ko in target_order if ko in all_sheets_to_write]
+    #         # 补上不在顺序列表里的其他 key
+    #         for remaining in all_sheets_to_write.keys():
+    #             if remaining not in final_keys: final_keys.append(remaining)
+            
+    #         for skey in final_keys:
+    #             all_sheets_to_write[skey].to_excel(writer, sheet_name=skey[:31], index=(skey != "用户初始设定" and skey != "作品概述"))
+        
+    #     self.logger.info(f"Excel大纲已保存 (含初始设定): {excel_path}")
+    #     return excel_path
+
+    # 注意：记得在 process_task 中调用 save_outline_to_excel 时传入 task 字典
+    # 找到 process_task 里的这一行：
+    # self.save_outline_to_excel(outline, novel_dir, novel_title)
+    # 修改为：
+    # self.save_outline_to_excel(outline, novel_dir, novel_title, task_data=task)
+
+    def save_outline_to_excel(self, outline: Dict, novel_dir: str, novel_title: str, task_data: Dict = None) -> str:
         """
-        [修改] 增强版 Excel 保存：
-        1. 强制指定 Sheet 顺序 (作品概述 -> 人物 -> 卷 -> 章)
-        2. 自动添加列 “本章字数“, “本卷完成情况“, “本卷字数”
-        3. 严格保留历史数据
+        [修改版] 增强版 Excel 保存：
+        1. 增加“用户初始设定” Sheet (放在第一页)
+        2. 严格控制 Sheet 顺序
         """
         excel_path = os.path.join(novel_dir, "outline.xlsx")
         
         old_chapter_data = {}
         old_volume_data = {}
 
-        # === 1. 备份旧数据 (保持不变) ===
+        # === 1. 备份旧数据 (逻辑不变) ===
         if os.path.exists(excel_path):
             try:
-                # 备份章进度
                 old_ch_df = pd.read_excel(excel_path, sheet_name="章详细大纲", index_col=0, dtype=object)
                 for idx, row in old_ch_df.iterrows():
                     if self.is_chapter_done(row.get('本章完成情况', 0)):
@@ -490,7 +703,6 @@ class NovelGenerator:
                             '本章总结': row.get('本章总结', ''),
                             '本章字数': row.get('本章字数', 0)
                         }
-                # 备份卷进度
                 try:
                     old_vol_df = pd.read_excel(excel_path, sheet_name="卷详细大纲", index_col=0, dtype=object)
                     for idx, row in old_vol_df.iterrows():
@@ -502,81 +714,60 @@ class NovelGenerator:
             except Exception as e:
                 self.logger.warning(f"读取旧Excel状态时遇到小问题: {e}")
 
-        # === 2. 写入新数据 (修改循环逻辑) ===
-        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+        # === 2. 写入新数据 ===
+        # with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+        with pd.ExcelWriter(excel_path, engine='openpyxl', datetime_format='YYYY-MM-DD HH:MM:SS') as writer:
             
-            # ✅ [关键修改] 定义期望的 Sheet 顺序
-            target_order = ["作品概述", "核心设定与人物", "卷详细大纲", "章详细大纲"]
+            # ✅ [关键改动] 定义 Sheet 顺序，把初始设定放第一
+            target_order = ["用户初始设定", "作品概述", "核心设定与人物", "卷详细大纲", "章详细大纲"]
             
-            # 获取大纲中实际存在的所有 key
+            # ✅ [关键改动] 先把用户初始设定写进去
+            if task_data:
+                pd.DataFrame([task_data]).to_excel(writer, sheet_name="用户初始设定", index=False)
+
             existing_keys = list(outline.keys())
-            
-            # 构建有序列表：先放 target_order 里的，再放剩余没见过的
-            sorted_keys = []
-            for k in target_order:
-                if k in existing_keys:
-                    sorted_keys.append(k)
-            
-            # 把不在目标顺序里的其他 Sheet (如果有) 放到最后
-            for k in existing_keys:
-                if k not in sorted_keys:
-                    sorted_keys.append(k)
-            
-            # ✅ [关键修改] 按有序列表遍历
-            for sheet_name in sorted_keys:
+            for sheet_name in target_order:
+                if sheet_name == "用户初始设定": continue # 跳过已写的
+                if sheet_name not in outline: continue
+                
                 data = outline[sheet_name]
                 
-                # === 下面的逻辑完全保持不变 ===
-                
-                # Case A: 处理 "章详细大纲"
+                # Case A: 处理 "章详细大纲" (合并旧进度)
                 if sheet_name == "章详细大纲" and isinstance(data, dict):
                     df = pd.DataFrame.from_dict(data, orient='index')
-                    
                     if '本章完成情况' not in df.columns: df['本章完成情况'] = 0
                     if '本章字数' not in df.columns: df['本章字数'] = 0
                     if '本章总结' not in df.columns: df['本章总结'] = ''
-                    df['本章总结'] = df['本章总结'].astype(object)
-                    
                     for idx in df.index:
                         str_idx = str(idx)
                         if str_idx in old_chapter_data:
                             info = old_chapter_data[str_idx]
                             df.at[idx, '本章完成情况'] = 1
                             df.at[idx, '本章字数'] = info.get('本章字数', 0)
-                            if pd.notna(info.get('本章总结')):
-                                df.at[idx, '本章总结'] = info['本章总结']
+                            if pd.notna(info.get('本章总结')): df.at[idx, '本章总结'] = info['本章总结']
                     
                     cols = ['本章所属卷次', '本章次', '本章标题', '本章完成情况', '本章字数', '本章总结'] 
                     other_cols = [c for c in df.columns if c not in cols]
-                    df = df[cols + other_cols]
-                    df.to_excel(writer, sheet_name=sheet_name, index=True)
+                    df[cols + other_cols].to_excel(writer, sheet_name=sheet_name, index=True)
 
                 # Case B: 处理 "卷详细大纲"
                 elif sheet_name == "卷详细大纲" and isinstance(data, dict):
                     df = pd.DataFrame.from_dict(data, orient='index')
-                    
                     if '本卷完成情况' not in df.columns: df['本卷完成情况'] = 0
                     if '本卷字数' not in df.columns: df['本卷字数'] = 0
-                    
                     for idx in df.index:
                         str_idx = str(idx)
                         if str_idx in old_volume_data:
                             info = old_volume_data[str_idx]
                             df.at[idx, '本卷完成情况'] = info.get('本卷完成情况', 0)
                             df.at[idx, '本卷字数'] = info.get('本卷字数', 0)
-                    
                     df.to_excel(writer, sheet_name=sheet_name, index=True)
 
-                # Case C: 其他 Sheet
+                # Case C: 其他 Sheet (作品概述, 核心设定等)
                 elif isinstance(data, dict):
                     first_val = next(iter(data.values()), None)
-                    if isinstance(first_val, dict):
-                        df = pd.DataFrame.from_dict(data, orient='index')
-                    else:
-                        df = pd.DataFrame([data])
+                    df = pd.DataFrame.from_dict(data, orient='index') if isinstance(first_val, dict) else pd.DataFrame([data])
                     df.to_excel(writer, sheet_name=sheet_name[:31])
-                else:
-                    pd.DataFrame([{"内容": data}]).to_excel(writer, sheet_name=sheet_name[:31])
         
         self.logger.info(f"Excel大纲结构已更新: {excel_path}")
         return excel_path
@@ -866,6 +1057,9 @@ class NovelGenerator:
         os.makedirs(novel_dir, exist_ok=True)
         self.logger.info(f"工作目录: {novel_dir}")
 
+        # 🟢 [新增] 记录开始生成时间并存入 task 字典
+        task['novel_gen_start_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
         # 🟢 设置 Logger 并接管 stdout/stderr
         custom_logger = Logger(os.path.join(novel_dir, f"task_{task_id}.log"), task)
         original_stdout = sys.stdout
@@ -927,7 +1121,7 @@ class NovelGenerator:
             excel_path = os.path.join(novel_dir, "outline.xlsx")
             
             if not os.path.exists(excel_path):
-                self.save_outline_to_excel(outline, novel_dir, novel_title)
+                self.save_outline_to_excel(outline, novel_dir, novel_title, task_data=task)
             
             self.update_task_csv(self.tasks_csv_path, task_id, outline_done=1)
 
@@ -1023,12 +1217,23 @@ class NovelGenerator:
                     self.logger.info(f"🔄 正在更新第 {r} 卷的统计信息...")
                     self.update_volume_progress(excel_path, r)
             
+            # -------------------------------------------------------
+            # 🟢 [关键修改] 任务正文全部生成完毕后，更新结束时间并重写 Excel
+            # -------------------------------------------------------
+            task['novel_gen_end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self.logger.info(f"正在更新 Excel 中的生成时间统计...")
+            self.save_outline_to_excel(outline, novel_dir, novel_title, task_data=task)
+            # -------------------------------------------------------
 
             self.logger.info(f"任务结束: {task_id}")
             self.zip_novel_folder(novel_dir)
             return True
             
         except Exception as e:
+            # 🟢 [建议添加] 哪怕失败了，也记录一下结束时间，方便排查耗时
+            task['novel_gen_end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S (异常中断)')
+            self.save_outline_to_excel(outline, novel_dir, novel_title, task_data=task)
+
             self.logger.exception(f"任务执行过程中发生未捕获异常: {e}")
             return False
         finally:
