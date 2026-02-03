@@ -5,11 +5,11 @@
 ## Set API Key
 Create ```.env``` in project root dir.
 ```
-# Use [DEEPSEEK](https://platform.deepseek.com/usage) to generate novel content.
-DEEPSEEK_API_KEY=sk-xxxxxxxxxx
+# Use [DEEPSEEK](https://platform.deepseek.com/usage) to generate novel content, required
+DEEPSEEK_API_KEY=
 
-# Use [DMX](https://www.dmxapi.com/console) to generate novel cover.
-DMX_API_KEY=sk-xxxxxxxxxx
+# Use [DMX](https://www.dmxapi.com/console) to generate novel cover, optional
+DMX_API_KEY=
 ```
 
 ## Set novel tasks
@@ -35,8 +35,8 @@ Or you can ask [Google AI Studio](https://aistudio.google.com/) for novel genera
 ```
 你是一个熟悉现在各大小说app上畅销书和写作风格的分析专家，你知道什么样的小说很火，你可以深度调研，写一个兴趣调查分析报告，你知道大家都喜欢读什么样子的小说，比如：废柴打怪升级、变强、科幻休闲、穿越、迎娶白富美，或者这些不同类型可以杂糅，会不会变得更有趣呢，我不太了解，你自己看着办吧。
 帮我出出主意，我的目标是成为排行榜前几的写作大佬。然后仿照下面这种格式 返回给我一个csv表格,包含30条任务（按照预计火爆程度进行从其拿到后排序），其中novel_idea可以尽情发挥，字数多一些
-task_id,novel_type,novel_idea,write_style,target_reader,note,volume_num,chapter_num,chapter_word_num,status,outline_done,gen_start_time,gen_end_time
-1,玄幻,主角从萌新升级成为上界大佬，要有逆袭情节剧情精彩详实，有反转,热血燃爆,男性,每章要有起承转合，结尾留有悬念,10,80,2000,0,0,,
+task_id,novel_type,novel_idea,write_style,target_reader,note,volume_num,chapter_num,chapter_word_num,status,outline_done,novel_gen_start_time,novel_gen_end_time
+1,玄幻,主角从萌新升级成为上界大佬，要有逆袭情节剧情精彩详实，有反转,热血燃爆,男性,每章要有起承转合，结尾留有悬念,10,80,2100,0,0,,
 ```
 
 ## Quick Start
@@ -100,7 +100,7 @@ novels/
 Use [ChatGPT](https://chatgpt.com/) to expand content, prompt is as follows:
 ```
 ***
-这段内容的字数约3770左右，扩写到4000字，并且说明在哪里插入什么内容”
+这章内容的字数约3770左右，请扩写到4000字，并且说明在哪里插入什么内容”
 ```
 
 ### Novel Cover Generation
