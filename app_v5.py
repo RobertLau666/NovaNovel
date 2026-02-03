@@ -338,7 +338,7 @@ class NovelGenerator:
                         break
             
             if not is_volume_exist:
-                self.logger.warning(f"⚠️  未检测到 第 {r} 卷的大纲，开始补全...")
+                self.logger.warning(f"⚠️  未检测到 第 {r} 卷的章详细大纲，开始补全...")
                 vol_chapters = None
                 for retry in range(3):
                     vol_chapters = self.generate_volume_chapters(outline, r, required_chapters)
@@ -349,7 +349,7 @@ class NovelGenerator:
                     outline["章详细大纲"].update(vol_chapters)
                     updated = True
                     existing_keys = list(outline["章详细大纲"].keys())
-                    self.logger.info(f"✅ 第 {r} 卷大纲补全成功，执行即时保存...")
+                    self.logger.info(f"✅ 第 {r} 卷的章详细大纲补全成功，执行即时保存...")
                     
                     try:
                         with open(outline_path, 'w', encoding='utf-8') as f:
@@ -362,7 +362,7 @@ class NovelGenerator:
                     except Exception as e:
                         self.logger.error(f"Excel即时保存失败: {e}")
                 else:
-                    self.logger.error(f"❌ 第 {r} 卷大纲补全失败")
+                    self.logger.error(f"❌ 第 {r} 卷的章详细大纲补全失败")
                 
         return outline, updated
 
@@ -648,7 +648,7 @@ class NovelGenerator:
     def update_task_csv(self, csv_path: str, task_id: int, status: int = None, 
                         outline_done: int = None, gen_start: bool = False, gen_end: bool = False):
         try:
-            df = pd.read_csv(csv_path, dtype={'gen_start_time': str, 'gen_end_time': str})
+            df = pd.read_csv(csv_path, dtype={'novel_gen_start_time': str, 'novel_gen_end_time': str})
             mask = df['task_id'] == task_id
             
             if status is not None and 'status' in df.columns:
@@ -657,11 +657,11 @@ class NovelGenerator:
             if outline_done is not None and 'outline_done' in df.columns:
                 df.loc[mask, 'outline_done'] = outline_done
                 
-            if gen_start and 'gen_start_time' in df.columns:
-                df.loc[mask, 'gen_start_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            if gen_start and 'novel_gen_start_time' in df.columns:
+                df.loc[mask, 'novel_gen_start_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 
-            if gen_end and 'gen_end_time' in df.columns:
-                df.loc[mask, 'gen_end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            if gen_end and 'novel_gen_end_time' in df.columns:
+                df.loc[mask, 'novel_gen_end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             
             df.to_csv(csv_path, index=False)
         except Exception as e:
@@ -879,7 +879,7 @@ def main():
     # 加载 .env 文件
     load_dotenv()
     parser = argparse.ArgumentParser()
-    parser.add_argument('-f', '--tasks_csv_path', default="./csvs/novel_gen_tasks_test.csv")
+    parser.add_argument('-f', '--tasks_csv_path', default="./novel_gen_tasks/1_test.csv")
     parser.add_argument('-i', '--task_ids', type=str)
     parser.add_argument('--gen-cover', action='store_true', help='Whether to use the cover generation function')
     args = parser.parse_args()

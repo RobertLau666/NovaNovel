@@ -13,7 +13,7 @@ DMX_API_KEY=sk-xxxxxxxxxx
 ```
 
 ## Set novel tasks
-Edit `novel_gen_tasks.csv`:
+Edit `*.csv` and put it under dir ```novel_gen_tasks/```.
 
 | Field                | Description                      | Example                              |
 |----------------------|----------------------------------|--------------------------------------|

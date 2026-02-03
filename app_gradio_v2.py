@@ -7,29 +7,16 @@ import threading
 import glob
 import argparse
 from dotenv import load_dotenv
-
 # 导入核心逻辑
 from app_v5 import DeepSeekClient, DMXImageAPIGenerator, NovelGenerator
 
-# 加载环境变量
-load_dotenv()
-
-# ================= 配置常量 =================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CSVS_DIR = os.path.join(BASE_DIR, "csvs")
-NOVELS_DIR = os.path.join(BASE_DIR, "novels")
-
-# 确保目录存在
-os.makedirs(CSVS_DIR, exist_ok=True)
-os.makedirs(NOVELS_DIR, exist_ok=True)
 
 # ================= 辅助函数 =================
-
 def get_csv_files():
-    """获取 csvs/ 目录下所有 csv 文件"""
-    if not os.path.exists(CSVS_DIR): return []
-    files = [f for f in os.listdir(CSVS_DIR) if f.endswith('.csv')]
-    files.sort(key=lambda x: os.path.getmtime(os.path.join(CSVS_DIR, x)), reverse=True)
+    """获取 novel_gen_tasks/ 目录下所有 csv 文件"""
+    if not os.path.exists(NOVEL_GEN_TASKS_DIR): return []
+    files = [f for f in os.listdir(NOVEL_GEN_TASKS_DIR) if f.endswith('.csv')]
+    files.sort(key=lambda x: os.path.getmtime(os.path.join(NOVEL_GEN_TASKS_DIR, x)), reverse=True)
     return files
 
 def parse_task_ids(text_input, all_ids):
@@ -72,7 +59,7 @@ def read_specific_log(task_id):
 def upload_csv_file(file):
     if file is None: return gr.update(), "未选择文件"
     filename = os.path.basename(file.name)
-    dest_path = os.path.join(CSVS_DIR, filename)
+    dest_path = os.path.join(NOVEL_GEN_TASKS_DIR, filename)
     shutil.copy(file.name, dest_path)
     return gr.update(choices=get_csv_files(), value=filename), f"✅ 已上传/覆盖文件: {filename}"
 
@@ -80,7 +67,7 @@ def on_csv_selected(filename):
     if not filename:
         return None, gr.update(choices=[], value=[]), gr.update(value=""), ""
     
-    path = os.path.join(CSVS_DIR, filename)
+    path = os.path.join(NOVEL_GEN_TASKS_DIR, filename)
     try:
         df = pd.read_csv(path)
         choices = []
@@ -112,7 +99,7 @@ def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
         yield "请先选择 CSV 文件", ""
         return
 
-    csv_path = os.path.join(CSVS_DIR, csv_filename)
+    csv_path = os.path.join(NOVEL_GEN_TASKS_DIR, csv_filename)
     df = pd.read_csv(csv_path)
     all_existing_ids = df['task_id'].tolist() if 'task_id' in df.columns else []
 
@@ -186,7 +173,7 @@ def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
         log_content = read_specific_log(tid)
         yield f"✅ Task {tid} 完成。\n", log_content
         
-    yield "🎉 所有任务执行完毕！", "All Done."
+    yield f"🎉 所有任务（{target_ids}）执行完毕！", "All Done."
 
 # 🟢 [新增] 切换 Sheet 的逻辑
 def update_excel_sheet(sheet_name, file_path):
@@ -205,6 +192,19 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=7860, help="Gradio server port")
     parser.add_argument("--share", action="store_true", help="Create a public link")
     args = parser.parse_args()
+
+    # 加载环境变量
+    load_dotenv()
+
+    # ================= 配置常量 =================
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    NOVEL_GEN_TASKS_DIR = os.path.join(BASE_DIR, "novel_gen_tasks")
+    NOVELS_DIR = os.path.join(BASE_DIR, "novels")
+
+    # 确保目录存在
+    os.makedirs(NOVEL_GEN_TASKS_DIR, exist_ok=True)
+    os.makedirs(NOVELS_DIR, exist_ok=True)
+
 
     gradio_title = "📚 AINovel (Gradio)"
     with gr.Blocks(title=gradio_title) as demo:
