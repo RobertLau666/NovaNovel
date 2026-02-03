@@ -31,7 +31,7 @@ Edit `*.csv` and put it under dir ```novel_gen_tasks/```.
 | novel_gen_start_time | Novel Generation Start Time      | Auto-filled                          |
 | novel_gen_end_time   | Novel Generation End Time        | Auto-filled                          |
 
-Or you can ask [Google AI Studio](https://aistudio.google.com/) for novel generate tasks:
+Or you can ask [Google AI Studio](https://aistudio.google.com/) for novel generate tasks, prompt is as follows:
 ```
 # Role: 顶级网文大数据分析师 & 金牌主编
 # Profile:
@@ -51,7 +51,7 @@ Or you can ask [Google AI Studio](https://aistudio.google.com/) for novel genera
 4. **排序**：按照“预计火爆程度”从高到低排序（Task 1 为最火）。
 
 # Column Definition (详细要求):
-- **novel_idea**: (重点) 必须在150-200字之间。要包含：主角背景（如废柴/穿越者/重生者）、金手指具体功能（如：只有我能看到隐藏提示）、核心主线（如：抵抗万族入侵）、以及一个具体的“钩子”剧情（开篇前三章的高潮点）。
+- **novel_idea**: (重点) 必须在250-300字之间。要包含：主角背景（如废柴/穿越者/重生者）、金手指具体功能（如：只有我能看到隐藏提示）、核心主线（如：抵抗万族入侵）、以及一个具体的“钩子”剧情（开篇前三章的高潮点）。
 - **write_style**: 关键词堆砌，不少于5个。例如：迪化, 老六, 杀伐果断, 腹黑, 多女主, 稳健流, 极道, 诡异, 赛博朋克, 轻松搞笑, 脑洞大开。
 - **target_reader**: 男性/女性/通用。
 - **note**: 给生成器的特别指令，如：每章结尾必须断章在悬念处，前三章节奏要快。
@@ -96,7 +96,7 @@ python app.py -i 1                       # Only process task_id=1
 python app.py -i 1,3,6                   # Process task_id=1,3,6
 python app.py -i 3-6                     # Process task_id=3,4,5,6
 python app.py -i 1,3-5,8                 # Mixed format: task_id=1,3,4,5,8
-python app.py -f tasks.csv               # Specify task file
+python app.py -f test.csv               # Specify task file
 python app.py -i 1 --gen-cover           # Only process task_id=1, use cover generation
 ```
 

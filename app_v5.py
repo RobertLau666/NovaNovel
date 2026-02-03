@@ -1348,7 +1348,7 @@ def main():
     # 加载 .env 文件
     load_dotenv()
     parser = argparse.ArgumentParser()
-    parser.add_argument('-f', '--tasks_csv_path', default="./novel_gen_tasks/1_test.csv")
+    parser.add_argument('-f', '--tasks_csv_path', default="./novel_gen_tasks/test.csv")
     parser.add_argument('-i', '--task_ids', type=str)
     parser.add_argument('--gen-cover', action='store_true', help='Whether to use the cover generation function')
     args = parser.parse_args()

@@ -3,4 +3,5 @@ __pycache__/
 .gradio
 
 novels*
-temp_novels_views*
+novel_gen_tasks/*
+!novel_gen_tasks/test.csv
