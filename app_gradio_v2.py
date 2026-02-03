@@ -7,15 +7,30 @@ import threading
 import glob
 import argparse
 from dotenv import load_dotenv
+from concurrent.futures import ProcessPoolExecutor
+
 # 导入核心逻辑
 from app_v5 import DeepSeekClient, DMXImageAPIGenerator, NovelGenerator, run_single_task_worker
-from concurrent.futures import ProcessPoolExecutor
+
+# 加载环境变量
+load_dotenv()
+
+# ================= 配置常量 (必须放在全局) =================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# 这里统一使用 novel_gen_tasks 目录
+NOVEL_GEN_TASKS_DIR = os.path.join(BASE_DIR, "novel_gen_tasks") 
+NOVELS_DIR = os.path.join(BASE_DIR, "novels")
+
+# 确保目录存在
+os.makedirs(NOVEL_GEN_TASKS_DIR, exist_ok=True)
+os.makedirs(NOVELS_DIR, exist_ok=True)
 
 # ================= 辅助函数 =================
 def get_csv_files():
     """获取 novel_gen_tasks/ 目录下所有 csv 文件"""
     if not os.path.exists(NOVEL_GEN_TASKS_DIR): return []
     files = [f for f in os.listdir(NOVEL_GEN_TASKS_DIR) if f.endswith('.csv')]
+    # 按修改时间倒序
     files.sort(key=lambda x: os.path.getmtime(os.path.join(NOVEL_GEN_TASKS_DIR, x)), reverse=True)
     return files
 
@@ -56,47 +71,32 @@ def read_specific_log(task_id):
 
 # ================= Gradio 逻辑函数 =================
 
+# def upload_csv_file(file):
+#     if file is None: return gr.update(), "未选择文件"
+#     filename = os.path.basename(file.name)
+#     dest_path = os.path.join(NOVEL_GEN_TASKS_DIR, filename)
+#     shutil.copy(file.name, dest_path)
+#     return gr.update(choices=get_csv_files(), value=filename), f"✅ 已上传/覆盖文件: {filename}"
+
 def upload_csv_file(file):
     if file is None: return gr.update(), "未选择文件"
     filename = os.path.basename(file.name)
     dest_path = os.path.join(NOVEL_GEN_TASKS_DIR, filename)
-    shutil.copy(file.name, dest_path)
-    return gr.update(choices=get_csv_files(), value=filename), f"✅ 已上传/覆盖文件: {filename}"
-
-# def on_csv_selected(filename):
-#     if not filename:
-#         return None, gr.update(choices=[], value=[]), gr.update(value=""), ""
     
-#     path = os.path.join(NOVEL_GEN_TASKS_DIR, filename)
-#     try:
-#         df = pd.read_csv(path)
-#         choices = []
-#         all_ids = []
-#         completed_count = 0
-        
-#         if 'task_id' in df.columns:
-#             for idx, row in df.iterrows():
-#                 tid = row['task_id']
-#                 status = row.get('status', 0)
-#                 if status == 2:
-#                     completed_count += 1
-#                     all_ids.append(tid) 
-#                     continue
-#                 status_icon = "🔄" if status == 1 else "⏳"
-#                 idea = str(row.get('novel_idea', '无主题'))[:15]
-#                 label = f"ID:{tid} [{status_icon}] - {idea}..."
-#                 choices.append((label, tid))
-#                 all_ids.append(tid)
-        
-#         info_text = f"共发现 {len(df)} 个任务。"
-#         if completed_count > 0: info_text += f" (其中 {completed_count} 个已完成任务已自动隐藏)"
-#         return df, gr.update(choices=choices, value=[]), gr.update(placeholder="输入ID范围，如: 1, 3-5"), info_text
-#     except Exception as e:
-#         return None, gr.update(choices=[]), gr.update(value=""), f"读取失败: {e}"
+    # 覆盖文件
+    shutil.copy(file.name, dest_path)
+    
+    # 🟢 [关键修改] 修改权限为 666 (rw-rw-rw-)，解决锁的问题
+    try:
+        os.chmod(dest_path, 0o666)
+    except Exception as e:
+        print(f"Permission modification failed: {e}")
+
+    return gr.update(choices=get_csv_files(), value=filename), f"✅ 已上传/覆盖文件: {filename}"
 
 def on_csv_selected(filename):
     if not filename:
-        # 🟢 增加一个 None 返回值给下载组件
+        # 返回: DF, Checkbox, Textbox, InfoMarkdown, FileDownload
         return None, gr.update(choices=[], value=[]), gr.update(value=""), "", None
     
     path = os.path.join(NOVEL_GEN_TASKS_DIR, filename)
@@ -123,184 +123,32 @@ def on_csv_selected(filename):
         info_text = f"共发现 {len(df)} 个任务。"
         if completed_count > 0: info_text += f" (其中 {completed_count} 个已完成任务已自动隐藏)"
         
-        # 🟢 最后多返回一个 path
+        # 🟢 返回 path 给下载按钮
         return df, gr.update(choices=choices, value=[]), gr.update(placeholder="输入ID范围，如: 1, 3-5"), info_text, path
     except Exception as e:
         return None, gr.update(choices=[]), gr.update(value=""), f"读取失败: {e}", None
 
-# def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
-#     if not csv_filename:
-#         yield "请先选择 CSV 文件", ""
-#         return
+def refresh_csv_logic():
+    """刷新 CSV 列表，并自动选中第一个文件（如果存在）"""
+    files = get_csv_files()
+    if files:
+        return gr.update(choices=files, value=files[0])
+    else:
+        return gr.update(choices=[], value=None)
 
-#     csv_path = os.path.join(NOVEL_GEN_TASKS_DIR, csv_filename)
-#     df = pd.read_csv(csv_path)
-#     all_existing_ids = df['task_id'].tolist() if 'task_id' in df.columns else []
-
-#     target_ids = set(check_ids)
-#     target_ids.update(parse_task_ids(text_ids, all_existing_ids))
-#     target_ids = sorted(list(target_ids))
+# 🟢 [修改] 修复了解包错误，并增加了下载路径的返回
+def full_refresh():
+    files = get_csv_files()
+    if not files:
+        # 列表为空，清空预览
+        return gr.update(choices=[], value=None), gr.update(value=None), gr.update(choices=[]), gr.update(value=""), "", None
     
-#     if not target_ids:
-#         yield "❌ 未选择有效任务 ID", ""
-#         return
-
-#     yield f"🚀 准备执行任务 IDs: {target_ids}...\n", ""
-
-#     deepseek_key = os.getenv("DEEPSEEK_API_KEY")
-#     if not deepseek_key:
-#         yield "❌ 错误: 未找到 DEEPSEEK_API_KEY", ""
-#         return
-
-#     try:
-#         llm = DeepSeekClient(
-#             api_key=deepseek_key,
-#             base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-#             model_name=os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
-#         )
-#         dmx = None
-#         if gen_cover:
-#             dmx_key = os.getenv("DMX_API_KEY")
-#             if dmx_key: dmx = DMXImageAPIGenerator(api_key=dmx_key)
-#             else: yield "⚠️ 警告: 勾选了封面生成但未配置 DMX_API_KEY，将跳过封面。\n", ""
-
-#         generator = NovelGenerator(llm, dmx, csv_path)
-
-#     except Exception as e:
-#         yield f"❌ 初始化失败: {e}", ""
-#         return
-
-#     tasks_queue = []
-#     for idx, row in df.iterrows():
-#         tid = row.get('task_id', idx+1)
-#         if tid in target_ids: tasks_queue.append((tid, row.to_dict()))
-
-#     total = len(tasks_queue)
-#     for i, (tid, task_data) in enumerate(tasks_queue):
-#         msg_prefix = f"▶️ [{i+1}/{total}] Task {tid}: "
-#         yield msg_prefix + "正在启动...", ""
-        
-#         generator.update_task_csv(csv_path, tid, status=1, gen_start=True)
-#         task_thread_finished = False
-        
-#         def run_thread():
-#             nonlocal task_thread_finished
-#             try:
-#                 success = generator.process_task(task_data, tid)
-#                 final_status = 2 if success else 3
-#                 generator.update_task_csv(csv_path, tid, status=final_status, gen_end=True)
-#             except Exception as e:
-#                 print(f"Task {tid} Exception: {e}")
-#                 generator.update_task_csv(csv_path, tid, status=3)
-#             finally:
-#                 task_thread_finished = True
-
-#         t = threading.Thread(target=run_thread)
-#         t.start()
-        
-#         while not task_thread_finished:
-#             log_content = read_specific_log(tid)
-#             yield msg_prefix + "执行中...", log_content
-#             time.sleep(1.5)
-            
-#         t.join()
-#         log_content = read_specific_log(tid)
-#         yield f"✅ Task {tid} 完成。\n", log_content
-        
-#     yield f"🎉 所有任务（{target_ids}）执行完毕！", "All Done."
-
-# def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
-#     if not csv_filename:
-#         yield "请先选择 CSV 文件", ""
-#         return
-
-#     csv_path = os.path.join(NOVEL_GEN_TASKS_DIR, csv_filename)
-#     df = pd.read_csv(csv_path)
-#     all_existing_ids = df['task_id'].tolist() if 'task_id' in df.columns else []
-
-#     target_ids = set(check_ids)
-#     target_ids.update(parse_task_ids(text_ids, all_existing_ids))
-#     target_ids = sorted(list(target_ids))
+    first_file = files[0]
+    # 手动调用预览逻辑获取数据 (注意这里接收 5 个返回值)
+    df, chk, txt, info, path = on_csv_selected(first_file)
     
-#     if not target_ids:
-#         yield "❌ 未选择有效任务 ID", ""
-#         return
-
-#     # 🟢 [修改] 增强状态栏显示
-#     ids_str = ", ".join(map(str, target_ids))
-#     initial_msg = f"🚀 准备并发执行 {len(target_ids)} 个任务: [{ids_str}]"
-#     yield initial_msg, ""
-
-#     deepseek_key = os.getenv("DEEPSEEK_API_KEY")
-#     if not deepseek_key:
-#         yield "❌ 错误: 未找到 DEEPSEEK_API_KEY", ""
-#         return
-
-#     # 初始化配置
-#     llm = DeepSeekClient(
-#         api_key=deepseek_key,
-#         base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-#         model_name=os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
-#     )
-#     dmx_key = os.getenv("DMX_API_KEY")
-#     dmx = DMXImageAPIGenerator(api_key=dmx_key) if (gen_cover and dmx_key) else None
-#     generator = NovelGenerator(llm, dmx, csv_path)
-
-#     tasks_to_run = []
-#     for idx, row in df.iterrows():
-#         tid = row.get('task_id', idx+1)
-#         if tid in target_ids:
-#             tasks_to_run.append((tid, row.to_dict()))
-
-#     # 🟢 [核心修改] 使用线程池实现并发
-#     # 建议 max_workers 设置为 2-3，防止 DeepSeek API 频率超限
-#     max_workers = 2 
-#     executor = ThreadPoolExecutor(max_workers=max_workers)
-    
-#     future_to_tid = {}
-#     for tid, tdata in tasks_to_run:
-#         generator.update_task_csv(csv_path, tid, status=1, gen_start=True)
-#         # 提交任务
-#         f = executor.submit(generator.process_task, tdata, tid)
-#         future_to_tid[f] = tid
-
-#     # 监控并发任务状态
-#     finished_tasks = []
-#     total_count = len(target_ids)
-
-#     while len(finished_tasks) < total_count:
-#         running_ids = []
-#         last_log = ""
-        
-#         for f, tid in future_to_tid.items():
-#             if f.done():
-#                 if tid not in finished_tasks:
-#                     finished_tasks.append(tid)
-#                     try:
-#                         success = f.result()
-#                         generator.update_task_csv(csv_path, tid, status=2 if success else 3, gen_end=True)
-#                     except Exception as e:
-#                         generator.update_task_csv(csv_path, tid, status=3)
-#             else:
-#                 running_ids.append(tid)
-        
-#         # 构造实时状态
-#         running_str = ", ".join(map(str, running_ids))
-#         done_str = ", ".join(map(str, finished_tasks))
-        
-#         status_msg = f"⏳ 正在并发运行 ({len(running_ids)}/{max_workers}): [{running_str}] | ✅ 已完成: [{done_str}]"
-        
-#         # 实时取其中一个正在运行任务的日志显示在界面上
-#         if running_ids:
-#             last_log = read_specific_log(running_ids[0])
-#         elif finished_tasks:
-#             last_log = read_specific_log(finished_tasks[-1])
-            
-#         yield status_msg, last_log
-#         time.sleep(2)
-
-#     executor.shutdown()
-#     yield f"🎉 所有并发任务 [{ids_str}] 执行完毕！", "All Done."
+    # 返回所有组件的更新
+    return gr.update(choices=files, value=first_file), df, chk, txt, info, path
 
 def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
     if not csv_filename:
@@ -319,7 +167,6 @@ def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
         yield "❌ 未选择有效任务 ID", ""
         return
 
-    # 🟢 优化后的状态信息显示
     ids_str = ", ".join(map(str, target_ids))
     msg_init = f"🚀 准备执行 {len(target_ids)} 个任务: [{ids_str}]"
     yield msg_init, ""
@@ -333,13 +180,12 @@ def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
         if tid in target_ids:
             tasks_to_run.append((tid, row.to_dict()))
 
-    # 🟢 【关键修改】使用多进程执行，max_workers 建议设为 2-4
+    # 多进程执行
     max_workers = 2 
     executor = ProcessPoolExecutor(max_workers=max_workers)
     
     futures = {}
     for tid, tdata in tasks_to_run:
-        # 直接调用 app_v5 里的 worker 函数，它内部会完整初始化独立的 logger
         f = executor.submit(
             run_single_task_worker,
             tdata, tid, csv_path, deepseek_key, dmx_key, gen_cover
@@ -359,12 +205,10 @@ def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
             else:
                 running_ids.append(tid)
         
-        # 🟢 更新总体状态
         run_str = ", ".join(map(str, running_ids))
         done_str = ", ".join(map(str, finished_ids))
         status_update = f"⏳ 正在并发生成 (并发数:{max_workers}): [{run_str}] | ✅ 已完成: [{done_str}] | 总进度: {len(finished_ids)}/{total_total}"
         
-        # 读取当前第一个正在运行的任务日志
         current_log = ""
         if running_ids:
             current_log = read_specific_log(running_ids[0])
@@ -377,7 +221,6 @@ def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
     executor.shutdown()
     yield f"🎉 所有任务执行完毕: [{ids_str}]", "All Done."
 
-# 🟢 [新增] 切换 Sheet 的逻辑
 def update_excel_sheet(sheet_name, file_path):
     if not sheet_name or not file_path:
         return gr.update()
@@ -395,19 +238,6 @@ if __name__ == "__main__":
     parser.add_argument("--share", action="store_true", help="Create a public link")
     args = parser.parse_args()
 
-    # 加载环境变量
-    load_dotenv()
-
-    # ================= 配置常量 =================
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    NOVEL_GEN_TASKS_DIR = os.path.join(BASE_DIR, "novel_gen_tasks")
-    NOVELS_DIR = os.path.join(BASE_DIR, "novels")
-
-    # 确保目录存在
-    os.makedirs(NOVEL_GEN_TASKS_DIR, exist_ok=True)
-    os.makedirs(NOVELS_DIR, exist_ok=True)
-
-
     gradio_title = "📚 AINovel (Gradio)"
     with gr.Blocks(title=gradio_title) as demo:
         gr.Markdown(f"## {gradio_title}")
@@ -421,7 +251,6 @@ if __name__ == "__main__":
                 refresh_csv_btn = gr.Button("🔄 刷新列表", size="sm")
             with gr.Column(scale=2):
                 csv_viewer = gr.DataFrame(label="📊 CSV 内容预览", wrap=True)
-                # 🟢 增加此行：用于下载当前的 CSV 文件
                 csv_download = gr.File(label="⬇️ 下载选中的任务表", interactive=False)
 
         # Row 2: Config
@@ -452,7 +281,7 @@ if __name__ == "__main__":
                 file_explorer = gr.FileExplorer(
                     root_dir=NOVELS_DIR,
                     ignore_glob="**/__pycache__/**",
-                    label="📁 Novels 目录 (点击文件夹刷新)",
+                    label="📁 Novels目录 (点击文件夹刷新；刷新网页以刷新Novels目录)",
                     height=600,
                     file_count="single" 
                 )
@@ -461,7 +290,6 @@ if __name__ == "__main__":
                 gr.Markdown("#### 👁️ 文件预览 & 下载")
                 selected_path_box = gr.Textbox(label="当前选中文件路径", interactive=False)
                 
-                # 🟢 [新增] Sheet 选择下拉框 (默认隐藏)
                 sheet_dropdown = gr.Dropdown(label="📑 选择 Excel 工作表", visible=False, interactive=True)
                 
                 preview_img = gr.Image(label="封面预览", visible=False)
@@ -473,8 +301,18 @@ if __name__ == "__main__":
 
         upload_comp.upload(upload_csv_file, inputs=upload_comp, outputs=[csv_dropdown, status_bar])
         
-        refresh_csv_btn.click(lambda: gr.update(choices=get_csv_files()), outputs=csv_dropdown)
+        # 🟢 [修改] 刷新按钮逻辑：增加 csv_download 到输出列表
+        refresh_csv_btn.click(
+            full_refresh, 
+            outputs=[csv_dropdown, csv_viewer, id_checklist, id_textbox, task_info_md, csv_download]
+        )
         
+        # 页面加载时自动刷新
+        demo.load(
+            refresh_csv_logic, 
+            outputs=csv_dropdown
+        )
+
         csv_dropdown.change(
             on_csv_selected,
             inputs=csv_dropdown,
@@ -487,7 +325,6 @@ if __name__ == "__main__":
             outputs=[status_bar, log_viewer]
         )
         
-        # 🟢 [新增] Sheet 下拉框变化时的逻辑
         sheet_dropdown.change(
             update_excel_sheet,
             inputs=[sheet_dropdown, selected_path_box],
@@ -496,19 +333,20 @@ if __name__ == "__main__":
 
         def preview_file(file_path):
             if not file_path:
-                # 返回: Img, DF, Txt, SheetDropdown, DownloadFile, PathStr
                 return [gr.update(visible=False)]*4 + [None, ""]
             
             if isinstance(file_path, list):
                 if len(file_path) == 0: return [gr.update(visible=False)]*4 + [None, ""]
                 file_path = file_path[0]
+            
+            if os.path.isdir(file_path):
+                return [gr.update(visible=False)]*4 + [None, ""]
                 
             ext = os.path.splitext(file_path)[1].lower()
             
             update_img = gr.update(visible=False)
             update_df = gr.update(visible=False)
             update_txt = gr.update(visible=False)
-            # 🟢 [新增] 默认隐藏 Sheet 下拉框
             update_sheet = gr.update(visible=False, choices=[], value=None)
             
             try:
@@ -520,14 +358,12 @@ if __name__ == "__main__":
                         df = pd.read_csv(file_path)
                         update_df = gr.update(value=df, visible=True)
                     else:
-                        # 🟢 [修改] Excel 特殊处理：读取 Sheet 列表
                         xls = pd.ExcelFile(file_path)
                         sheet_names = xls.sheet_names
                         if sheet_names:
                             first_sheet = sheet_names[0]
                             df = pd.read_excel(file_path, sheet_name=first_sheet)
                             update_df = gr.update(value=df, visible=True)
-                            # 显示下拉框并填入选项
                             update_sheet = gr.update(visible=True, choices=sheet_names, value=first_sheet)
                         else:
                              update_df = gr.update(visible=False)
