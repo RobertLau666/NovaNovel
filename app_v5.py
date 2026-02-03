@@ -1164,7 +1164,11 @@ def main():
         print("没有需要执行的任务。")
         return
 
-    print(f"🚀 准备并发执行 {len(tasks_to_run)} 个任务...")
+    # 🟢 [修改] 提取 ID 并拼接成字符串
+    # tasks_to_run 的结构是List[(tid, row_dict)]，所以我们取 t[0]
+    ids_str = ", ".join([str(t[0]) for t in tasks_to_run])
+    
+    print(f"🚀 准备并发执行 {len(tasks_to_run)} 个任务: [{ids_str}]")
     print(f"⚠️ 注意：并发数过多可能导致 API Rate Limit 报错，建议 deepseek 并发不超过 5-10")
 
     # 🟢 [核心修改] 使用 ProcessPoolExecutor 进行多进程并发
