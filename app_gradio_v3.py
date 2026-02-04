@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from concurrent.futures import ProcessPoolExecutor
 
 # 导入核心逻辑
-from app_v5 import DeepSeekClient, DMXImageAPIGenerator, NovelGenerator, run_single_task_worker
+from app_v6 import DeepSeekClient, DMXImageAPIGenerator, NovelGenerator, run_single_task_worker
 
 # 加载环境变量
 load_dotenv()

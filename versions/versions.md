@@ -47,6 +47,10 @@
 6. outline.xlsx中加上“用户初始设定”
 7. 优化prompt
 
+## app_v6.py 202602050006
+1. 修改 generate_volume_chapters 函数，让它**“切片”**生成章详细大纲。
+2. xx
+
 
 # app_gradio
 ## app_gradio_v1.py 202602022030
@@ -57,3 +61,6 @@
 2. 预览xlsx文件可以选择sheet
 3. gradio中也可以并发/异步生成
 4. 预览的csv支持下载
+
+## app_gradio_v3.py 202602050056
+1. 待加上“终止生成”代码
