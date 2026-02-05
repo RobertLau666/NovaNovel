@@ -1423,9 +1423,12 @@ class NovelGenerator:
                 # 标记该卷是否有变动
                 is_volume_dirty = False 
 
+                volume_dir = os.path.join(content_dir, f"{r}")
+                os.makedirs(volume_dir, exist_ok=True)
+
                 for c in range(1, chap_num + 1):
                     key = f"{r}-{c}"
-                    txt_path = os.path.join(content_dir, f"{r}-{c}.txt")
+                    txt_path = os.path.join(volume_dir, f"{r}-{c}.txt")
                     
                     if key not in chapter_outlines:
                         self.logger.error(f"❌ 大纲缺失: {key} (JSON中未找到该章设定)，跳过生成TXT")
