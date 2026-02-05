@@ -54,6 +54,8 @@
 1. 加上"【全书大结局特别指令】"
 2. style_guides.py新增v6（继续生成2.csv的task_id1 8-72之后）
 3. 加上phase_style、micro_pacing
+4. csv有乱 改prompt严格写列名
+
 
 
 # app_gradio
