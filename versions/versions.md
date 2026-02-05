@@ -48,8 +48,12 @@
 7. 优化prompt
 
 ## app_v6.py 202602050006
-1. 修改 generate_volume_chapters 函数，让它**“切片”**生成章详细大纲。
-2. xx
+1. 修改 generate_volume_chapters 函数，让它**“切片”**生成章详细大纲。（开始跑2.csv的task_id1）
+
+## app_v7.py 202602052041
+1. 加上"【全书大结局特别指令】"
+2. style_guides.py新增v6（继续生成2.csv的task_id1 8-72之后）
+
 
 
 # app_gradio
@@ -63,4 +67,4 @@
 4. 预览的csv支持下载
 
 ## app_gradio_v3.py 202602050056
-1. 待加上“终止生成”代码
+1. 加上“终止生成”按钮

@@ -10,14 +10,13 @@ from dotenv import load_dotenv
 from concurrent.futures import ProcessPoolExecutor
 
 # 导入核心逻辑
-from app_v6 import DeepSeekClient, DMXImageAPIGenerator, NovelGenerator, run_single_task_worker
+from app_v7 import DeepSeekClient, DMXImageAPIGenerator, NovelGenerator, run_single_task_worker
 
 # 加载环境变量
 load_dotenv()
 
 # ================= 配置常量 (必须放在全局) =================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# 这里统一使用 novel_gen_tasks 目录
 NOVEL_GEN_TASKS_DIR = os.path.join(BASE_DIR, "novel_gen_tasks") 
 NOVELS_DIR = os.path.join(BASE_DIR, "novels")
 
@@ -25,12 +24,14 @@ NOVELS_DIR = os.path.join(BASE_DIR, "novels")
 os.makedirs(NOVEL_GEN_TASKS_DIR, exist_ok=True)
 os.makedirs(NOVELS_DIR, exist_ok=True)
 
+# 🟢 [新增] 全局停止事件信号
+STOP_EVENT = threading.Event()
+
 # ================= 辅助函数 =================
 def get_csv_files():
     """获取 novel_gen_tasks/ 目录下所有 csv 文件"""
     if not os.path.exists(NOVEL_GEN_TASKS_DIR): return []
     files = [f for f in os.listdir(NOVEL_GEN_TASKS_DIR) if f.endswith('.csv')]
-    # 按修改时间倒序
     files.sort(key=lambda x: os.path.getmtime(os.path.join(NOVEL_GEN_TASKS_DIR, x)), reverse=True)
     return files
 
@@ -69,24 +70,21 @@ def read_specific_log(task_id):
     else:
         return f"⏳ 正在初始化日志文件...\n(Searching in: {NOVELS_DIR}/**/task_{task_id}.log)"
 
-# ================= Gradio 逻辑函数 =================
+# 🟢 [新增] 停止任务的逻辑
+def stop_generation():
+    """触发停止信号"""
+    STOP_EVENT.set()
+    return "🛑 正在尝试终止任务... (当前正在运行的步骤完成后将停止)", ""
 
-# def upload_csv_file(file):
-#     if file is None: return gr.update(), "未选择文件"
-#     filename = os.path.basename(file.name)
-#     dest_path = os.path.join(NOVEL_GEN_TASKS_DIR, filename)
-#     shutil.copy(file.name, dest_path)
-#     return gr.update(choices=get_csv_files(), value=filename), f"✅ 已上传/覆盖文件: {filename}"
+# ================= Gradio 逻辑函数 =================
 
 def upload_csv_file(file):
     if file is None: return gr.update(), "未选择文件"
     filename = os.path.basename(file.name)
     dest_path = os.path.join(NOVEL_GEN_TASKS_DIR, filename)
     
-    # 覆盖文件
     shutil.copy(file.name, dest_path)
     
-    # 🟢 [关键修改] 修改权限为 666 (rw-rw-rw-)，解决锁的问题
     try:
         os.chmod(dest_path, 0o666)
     except Exception as e:
@@ -96,7 +94,6 @@ def upload_csv_file(file):
 
 def on_csv_selected(filename):
     if not filename:
-        # 返回: DF, Checkbox, Textbox, InfoMarkdown, FileDownload
         return None, gr.update(choices=[], value=[]), gr.update(value=""), "", None
     
     path = os.path.join(NOVEL_GEN_TASKS_DIR, filename)
@@ -123,34 +120,31 @@ def on_csv_selected(filename):
         info_text = f"共发现 {len(df)} 个任务。"
         if completed_count > 0: info_text += f" (其中 {completed_count} 个已完成任务已自动隐藏)"
         
-        # 🟢 返回 path 给下载按钮
         return df, gr.update(choices=choices, value=[]), gr.update(placeholder="输入ID范围，如: 1, 3-5"), info_text, path
     except Exception as e:
         return None, gr.update(choices=[]), gr.update(value=""), f"读取失败: {e}", None
 
 def refresh_csv_logic():
-    """刷新 CSV 列表，并自动选中第一个文件（如果存在）"""
     files = get_csv_files()
     if files:
         return gr.update(choices=files, value=files[0])
     else:
         return gr.update(choices=[], value=None)
 
-# 🟢 [修改] 修复了解包错误，并增加了下载路径的返回
 def full_refresh():
     files = get_csv_files()
     if not files:
-        # 列表为空，清空预览
         return gr.update(choices=[], value=None), gr.update(value=None), gr.update(choices=[]), gr.update(value=""), "", None
     
     first_file = files[0]
-    # 手动调用预览逻辑获取数据 (注意这里接收 5 个返回值)
     df, chk, txt, info, path = on_csv_selected(first_file)
-    
-    # 返回所有组件的更新
     return gr.update(choices=files, value=first_file), df, chk, txt, info, path
 
+# 🟢 [修改] 执行任务逻辑，加入停止检测
 def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
+    # 每次开始前重置停止信号
+    STOP_EVENT.clear()
+
     if not csv_filename:
         yield "请先选择 CSV 文件", ""
         return
@@ -186,6 +180,10 @@ def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
     
     futures = {}
     for tid, tdata in tasks_to_run:
+        # 🟢 在提交任务前也检查一下是否已停止
+        if STOP_EVENT.is_set():
+            break
+
         f = executor.submit(
             run_single_task_worker,
             tdata, tid, csv_path, deepseek_key, dmx_key, gen_cover
@@ -193,10 +191,19 @@ def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
         futures[f] = tid
 
     finished_ids = []
-    total_total = len(target_ids)
-
+    # 这里计算的是实际提交了的任务数量
+    total_submitted = len(futures) 
+    
     # 监控逻辑
-    while len(finished_ids) < total_total:
+    while len(finished_ids) < total_submitted:
+        # 🟢 [关键] 检查停止信号
+        if STOP_EVENT.is_set():
+            # 尝试关闭执行器，cancel_futures=True 尝试取消尚未开始的任务
+            # 注意：正在运行的子进程无法被立即强制杀死，只能等待其当前步骤完成或自行退出
+            executor.shutdown(wait=False, cancel_futures=True)
+            yield "⚠️ 任务已手动终止。点击‘开始生成’可继续未完成的任务。", ""
+            return
+
         running_ids = []
         for f, tid in futures.items():
             if f.done():
@@ -207,7 +214,11 @@ def execute_tasks(csv_filename, check_ids, text_ids, gen_cover):
         
         run_str = ", ".join(map(str, running_ids))
         done_str = ", ".join(map(str, finished_ids))
-        status_update = f"⏳ 正在并发生成 (并发数:{max_workers}): [{run_str}] | ✅ 已完成: [{done_str}] | 总进度: {len(finished_ids)}/{total_total}"
+        
+        # 防止除以零
+        progress_str = f"{len(finished_ids)}/{total_submitted}" if total_submitted > 0 else "0/0"
+        
+        status_update = f"⏳ 正在并发生成 (并发数:{max_workers}): [{run_str}] | ✅ 已完成: [{done_str}] | 总进度: {progress_str}"
         
         current_log = ""
         if running_ids:
@@ -264,9 +275,10 @@ if __name__ == "__main__":
                     id_checklist = gr.CheckboxGroup(label="列表勾选", choices=[])
                     id_textbox = gr.Textbox(label="文本强制指定", placeholder="例: 1, 3-5 (可强制重跑)")
 
-        # Row 3: Run
+        # Row 3: Run & Stop 🟢 [修改] 布局调整
         with gr.Row():
-            run_btn = gr.Button("🚀 开始生成", variant="primary", scale=2)
+            run_btn = gr.Button("🚀 开始/继续生成", variant="primary", scale=3)
+            stop_btn = gr.Button("🛑 终止生成", variant="stop", scale=1)
 
         # Row 4: Log
         with gr.Row():
@@ -301,17 +313,12 @@ if __name__ == "__main__":
 
         upload_comp.upload(upload_csv_file, inputs=upload_comp, outputs=[csv_dropdown, status_bar])
         
-        # 🟢 [修改] 刷新按钮逻辑：增加 csv_download 到输出列表
         refresh_csv_btn.click(
             full_refresh, 
             outputs=[csv_dropdown, csv_viewer, id_checklist, id_textbox, task_info_md, csv_download]
         )
         
-        # 页面加载时自动刷新
-        demo.load(
-            refresh_csv_logic, 
-            outputs=csv_dropdown
-        )
+        demo.load(refresh_csv_logic, outputs=csv_dropdown)
 
         csv_dropdown.change(
             on_csv_selected,
@@ -319,9 +326,17 @@ if __name__ == "__main__":
             outputs=[csv_viewer, id_checklist, id_textbox, task_info_md, csv_download]
         )
         
+        # 开始按钮逻辑
         run_btn.click(
             execute_tasks,
             inputs=[csv_dropdown, id_checklist, id_textbox, gen_cover_box],
+            outputs=[status_bar, log_viewer]
+        )
+        
+        # 🟢 [新增] 停止按钮逻辑
+        stop_btn.click(
+            stop_generation,
+            inputs=None,
             outputs=[status_bar, log_viewer]
         )
         
