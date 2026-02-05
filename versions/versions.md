@@ -53,7 +53,7 @@
 ## app_v7.py 202602052041
 1. 加上"【全书大结局特别指令】"
 2. style_guides.py新增v6（继续生成2.csv的task_id1 8-72之后）
-
+3. 加上phase_style、micro_pacing
 
 
 # app_gradio

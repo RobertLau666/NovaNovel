@@ -328,13 +328,51 @@ class NovelGenerator:
         res = self.llm.call(prompt, "你是一位专业的网络小说策划师，擅长创作热门爆款小说大纲。请严格按照用户要求的JSON格式返回结果。", 0.9)
         return self.extract_json_from_response(res)
 
+    # 🟢 [新增] 辅助函数：获取当前阶段的剧情/风格指导
+    def get_phase_instruction(self, current_vol: int, total_vols: int) -> str:
+        # 防止除以0
+        if total_vols < 1: total_vols = 1
+        ratio = current_vol / total_vols
+
+        if ratio <= 0.3:
+            return """
+【当前阶段：前期 - 破局与崛起】
+- **剧情重心**：高密度爽点、新奇设定展示、主角快速通过“信息差”或“金手指”获利。
+- **大纲要求**：事件要密集，冲突要直接。反派可以嚣张但要被快速打脸。
+- **氛围基调**：快节奏、轻松、惊奇、爽快。
+"""
+        elif ratio <= 0.75:
+            return """
+【当前阶段：中期 - 深潜与博弈】
+- **剧情重心**：世界观深度挖掘、势力之间的复杂博弈、主角遭遇真正的强敌或困境。
+- **大纲要求**：剧情要有反转，不要平铺直叙。引入高智商反派或难解的谜题。主角需要付出代价才能胜利。
+- **氛围基调**：紧张、压抑、悬疑、智斗。
+"""
+        else:
+            return """
+【当前阶段：后期 - 终焉与神性】
+- **剧情重心**：回收伏笔、解决终极悬念、主角价值观的升华、决定世界命运的决战。
+- **大纲要求**：事件规模要宏大（涉及世界/人类存亡）。减少琐碎的打怪，聚焦于核心矛盾。
+- **氛围基调**：史诗感、悲壮、震撼、神圣、希望。
+"""
+
     def generate_volume_chapters(self, outline: Dict, volume_index: int, chapter_count: int) -> Optional[Dict]:
         """
-        分批次生成卷大纲，解决长卷（如80章）Token超限和逻辑崩坏问题。
+        分批次生成卷的章详细大纲，解决长卷（如80章）Token超限和逻辑崩坏问题。
         """
         overview = outline.get("作品概述", {})
         characters = outline.get("核心设定与人物", {})
         all_volumes = outline.get("卷详细大纲", {})
+
+        # 获取总卷数
+        try:
+            total_volumes = int(outline.get("作品概述", {}).get("小说卷数", 10))
+        except:
+            total_volumes = 10
+        if total_volumes < 1: total_volumes = 10
+
+        # 🟢 [调用] 获取当前阶段的剧情指导
+        phase_instruction = self.get_phase_instruction(volume_index, total_volumes)
         
         current_vol_info = all_volumes.get(str(volume_index), {})
         
@@ -434,6 +472,8 @@ class NovelGenerator:
 - 本卷关键情节：{current_vol_info.get("本卷关键情节", "")}
 
 {previous_context}
+
+{phase_instruction}
 
 【本次批次生成目标】
 请生成本卷的第 **{start_chap}** 章 到 第 **{end_chap}** 章（共 {current_batch_count} 章）。
@@ -979,6 +1019,33 @@ class NovelGenerator:
     def generate_chapter(self, outline: Dict, volume: int, chapter: int, prev_chapters: list, chapter_word_num: int) -> Tuple[Optional[str], Optional[str]]:
         context, title, curr_chap_data = self.build_chapter_context(outline, volume, chapter, prev_chapters)
 
+        # 1. 获取全书总进度信息
+        try:
+            total_volumes = int(outline.get("作品概述", {}).get("小说卷数", 10))
+        except:
+            total_volumes = 10
+        if total_volumes < 1: total_volumes = 10
+        
+        # total_chapters_in_vol = int(outline.get("作品概述", {}).get("小说章数", 80))
+        try:
+            total_chapters_in_vol = int(outline.get("作品概述", {}).get("小说章数", 80))
+        except:
+            total_chapters_in_vol = 80
+        if total_chapters_in_vol < 1: total_chapters_in_vol = 80
+        
+        # 🟢 [宏观] 获取当前全书阶段风格 (你刚刚加的)
+        # 注意：虽然大纲已经定调了，但这里强调的是“文笔”和“描写方式”
+        phase_style = self.get_phase_instruction(volume, total_volumes)
+
+        # 🟢 [微观] 计算卷内位置，生成微调指令 (你现在问的)
+        micro_pacing = ""
+        chap_ratio = chapter / max(total_chapters_in_vol, 1)
+        
+        if chap_ratio > 0.95: # 最后 5%
+            micro_pacing = "【本卷大结局时刻】：这是本卷的最后收尾，必须引爆所有铺垫的冲突，解决本卷核心悬念，节奏极快，情绪极烈！并为下一卷埋下伏笔。"
+        elif chap_ratio < 0.05 and volume > 1: # 前 5% (第一卷除外，因为第一卷有黄金三章逻辑)
+             micro_pacing = "【新卷开篇】：刚结束上一卷的征程，本章节奏适当放缓。重点在于引入新地图、新人物或新危机，制造悬念，吸引读者进入新的故事线。"
+
         # 在 generate_chapter 函数中
         chap_type = curr_chap_data.get("本章节奏类型", "铺垫")
         # if chap_type == "沉淀":
@@ -1046,11 +1113,16 @@ class NovelGenerator:
 你现在就是网文界的“大神作家”，请根据大纲撰写正文（字数要求：{chapter_word_num}字左右）。
 一切剧情演绎必须严丝合缝地锚定在给定的【本章大纲】之内。严禁为了制造冲突而凭空捏造与后续大纲冲突的人物或设定。
 
-【通用质量标准】
-{self.style_guide}
 
-【节奏调控指令】
-{pacing_instruction}
+【一、当前全书阶段要求】
+{phase_style}
+
+【二、本章节奏控制】
+1. **大纲预设节奏**：{pacing_instruction}
+2. **卷内位置修正**：{micro_pacing}
+
+【三、大神级文笔规范】
+{self.style_guide}
 
 【其他文风要求】
 {outline["作品概述"].get("文风", "精彩网文")}
