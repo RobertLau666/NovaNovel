@@ -21,7 +21,8 @@ from openai import OpenAI
 from typing import Optional, Dict, Any, List, Tuple
 from dotenv import load_dotenv
 from concurrent.futures import ProcessPoolExecutor
-import style_guides
+import prompts
+import random
 
 # ======================== 日志类 ========================
 class Logger(object):
@@ -151,7 +152,7 @@ class NovelGenerator:
         self.context_prev_vol_num = 10  # 往前回顾多少卷
         self.context_prev_chap_num = 3  # 往前回顾多少章
 
-        self.style_guide = style_guides.style_guide_dict['v6']['prompt']
+        self.style_guide_prompt = prompts.STYLE_GUIDE_PROMPTS['v7']['prompt']
 
         # 初始化 Logger 配置 (保持原样，或者放在 main 中也可，这里保留以防万一)
         logging.basicConfig(
@@ -258,7 +259,7 @@ class NovelGenerator:
 - 备注：{task["note"]}
 
 【通用质量标准】
-{self.style_guide}
+{self.style_guide_prompt}
 
 【本特定任务风格要求】
 {task.get("write_style", "精彩网文")}
@@ -320,8 +321,9 @@ class NovelGenerator:
 
 重要：
 1. 根据卷数{task["volume_num"]}，生成对应数量的卷大纲（注意：此步骤不生成章大纲，章大纲会在后续步骤按卷生成）
-2. 人物至少5-10个主要角色，每个角色要有完整的设定，人物关系要错综复杂
-3. 只返回JSON，不要任何其他内容
+2. 人物至少6-10个主要角色，每个角色要有完整的设定，人物关系要错综复杂
+3. 生成内容中避免出现“每章都有xxx”、“每章必须xxx”之类的局限性的要求
+4. 只返回JSON，不要任何其他内容
 '''
         self.logger.info("正在生成宏观设定（含作品概述、人物设定、卷大纲）...")
         # 🟢 [修改] temperature=1.0 (最大化脑洞)，将 1.0 改为 0.9，提高 JSON 格式稳定性
@@ -491,10 +493,10 @@ class NovelGenerator:
 【生成要求】
 1. **生成数量**：必须生成本次批次完整的 **{current_batch_count}** 个章节。
 2. **剧情逻辑**：情节发展要意料之外情理之中，利用“信息差”制造爽点（迪化流）。
-3. **拒绝水文**：每一章必须有一个具体的“事件钩子”或“笑点/爽点”，禁止平铺直叙。
+3. **拒绝水文**：时不时有一个具体的“事件钩子”或“笑点/爽点”，禁止平铺直叙。
 4. **连贯性**：
    - 第一章：如果是全书开头，必须遵循“黄金三秒”，直接切入冲突。如果是卷首，要承接上卷余韵并开启新地图。
-   - 每一章结尾：必须留有“小钩子”（悬念），让人忍不住点下一章。
+   - 每一章结尾：随机留有“小钩子”（悬念），让人忍不住点下一章。
 5. 返回的JSON格式必须100%严格按以下键名，不多不少，不增不改：
 必选键名（仅这8个，不允许其他）：
 1. "本章所属卷次"
@@ -1121,12 +1123,16 @@ class NovelGenerator:
                 3. **收获**：解决眼前的危机，获得第一个战利品，并引出更大的地图。
                 """
 
+        # 🟢 [新功能] 随机抽取一条“导演指令”，打破套路
+        # 为了防止太随机，可以设定权重，或者每隔几章强制变奏一次
+        # 这里使用纯随机演示：
+        random_directive_prompt = random.choice(prompts.RANDOM_DIRECTIVE_PROMPTS)
+
         prompt = f"""{context}
 
 【写作指令】
 你现在就是网文界的“大神作家”，请根据大纲撰写正文（字数要求：{chapter_word_num}字左右）。
 一切剧情演绎必须严丝合缝地锚定在给定的【本章大纲】之内。严禁为了制造冲突而凭空捏造与后续大纲冲突的人物或设定。
-
 
 【一、当前全书阶段要求】
 {phase_style}
@@ -1136,7 +1142,22 @@ class NovelGenerator:
 2. **卷内位置修正**：{micro_pacing}
 
 【三、大神级文笔规范】
-{self.style_guide}
+{self.style_guide_prompt}
+
+【四、本章笔法润色（变奏指令）】
+👉 **{random_directive_prompt}**
+⚠️ **重要执行原则**：
+1. 上述“变奏指令”旨在丰富文章的阅读体验，**仅在与当前剧情不冲突的前提下执行**。
+2. **剧情逻辑优先级最高**。如果本章大纲是悲剧，而指令要求“动作轻快”，请忽略指令，**必须优先保证剧情氛围的合理性**。
+3. 请灵活运用该技巧，将其自然融入故事，不要生搬硬套。
+
+【五、基础写作规范】
+1. **剧情至上**：一切描写服务于剧情推进。不要为了震惊而震惊。
+2. **去套路化**：
+   - 严禁出现“全场死寂”、“全球哗然”、“弹幕爆炸”等重复套路！如果大纲里有，请用侧面描写（如数据流紊乱、反派手中的笔折断）来替代。
+   - 如果本章是“铺垫”或“悬疑”基调，不需要强行制造高潮。
+3. **逻辑自洽**：人物行为必须符合逻辑，不要强行降智。
+4. **沉浸感**：多用感官描写（视觉、听觉、触觉）。
 
 【其他文风要求】
 {outline["作品概述"].get("文风", "精彩网文")}

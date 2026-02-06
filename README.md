@@ -58,14 +58,14 @@ Or you can ask [Google AI Studio](https://aistudio.google.com/) for novel genera
     - **黄金钩子**：开篇前三章的具体高潮画面，必须体现出强烈的**情绪价值**（爽、燃、泪、笑）。
 - **write_style**: 5个以上关键词（如：迪化, 老六, 赛博朋克, 克苏鲁, 规则怪谈等）。
 - **target_reader**: 男性/女性/通用。
-- **note**: 给生成器的特别指令（如：反派必须高智商，每章结尾必须有反转）。
+- **note**: 给生成器的特别指令（置为""，留给用户填写）。
 - **其他数值**: volume_num(10), chapter_num(80), chapter_word_num(2100), status(0), outline_done(0), novel_gen_start_time(), novel_gen_end_time()。
 
 # Output Format:
 task_id,novel_type,novel_idea,write_style,target_reader,note,volume_num,chapter_num,chapter_word_num,status,outline_done,novel_gen_start_time,novel_gen_end_time
 
 # Example Row:
-1,规则怪谈,背景是诡异降临蓝星，龙国面临灭国危机。主角是精神病院的重症患者，金手指是“只有我能看到规则的红字备注”，但代价是每使用一次理智值会下降。核心主线是将自己上交“龙国异常事务局”，背靠国家机器攻略副本。钩子：S级副本中，别国天选者惨死，主角却看着红字提示“诡异怕广场舞”，于是带着诡异跳起了《最炫民族风》，全球观众从绝望到笑喷，情绪价值拉满。,规则怪谈,直播,爱国,搞笑,脑洞,通用,注意规避现实地名，重点描写弹幕的震惊反应,10,80,2100,0,0,,
+1,规则怪谈,背景是诡异降临蓝星，龙国面临灭国危机。主角是精神病院的重症患者，金手指是“只有我能看到规则的红字备注”，但代价是每使用一次理智值会下降。核心主线是将自己上交“龙国异常事务局”，背靠国家机器攻略副本。钩子：S级副本中，别国天选者惨死，主角却看着红字提示“诡异怕广场舞”，于是带着诡异跳起了《最炫民族风》，全球观众从绝望到笑喷，情绪价值拉满。,规则怪谈,直播,爱国,搞笑,脑洞,通用,,10,80,2100,0,0,,
 
 现在，请生成30条数据：
 ```
