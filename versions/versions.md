@@ -56,6 +56,9 @@
 3. 加上phase_style、micro_pacing
 4. csv有乱 改prompt严格写列名
 5. content/中加上卷文件夹
+6. 加上v7，去掉“每章”、“都”等字眼，改为“适当”
+7. 加上RANDOM_DIRECTIVE_PROMPTS，去掉单调性
+
 
 
 # app_gradio
