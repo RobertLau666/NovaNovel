@@ -127,6 +127,11 @@ novels/
 ```
 
 ## Postprocess
+### Count words
+```
+python tools/count_words/count_words.py --novel_gen_task_id '2' --task_id '1'
+```
+
 ### Content expansion
 Use [ChatGPT](https://chatgpt.com/) to expand content, prompt is as follows:
 ```

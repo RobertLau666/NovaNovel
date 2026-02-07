@@ -64,7 +64,7 @@ STYLE_GUIDE_PROMPTS = {
 
    "v4": {
       "info": """
-      """:,
+      """,
       "prompt": """
 【白金级剧情调控法则】
 

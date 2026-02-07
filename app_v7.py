@@ -22,7 +22,12 @@ from typing import Optional, Dict, Any, List, Tuple
 from dotenv import load_dotenv
 from concurrent.futures import ProcessPoolExecutor
 import prompts
+import csv
 import random
+import jieba
+from tqdm import tqdm
+from collections import Counter
+
 
 # ======================== 日志类 ========================
 class Logger(object):
@@ -1064,7 +1069,88 @@ class NovelGenerator:
             df.to_csv(csv_path, index=False)
         except Exception as e:
             self.logger.warning(f"更新CSV失败: {e}")
+
     
+    def get_all_txt_files(self, folder_path):
+        """递归获取所有txt文件路径"""
+        txt_files = []
+        # 检查路径是否存在
+        if not os.path.exists(folder_path):
+            return []
+            
+        for root, dirs, files in os.walk(folder_path):
+            for file in files:
+                if file.lower().endswith('.txt'):
+                    txt_files.append(os.path.join(root, file))
+        return txt_files
+
+    def generate_word_frequency(self, source_folder, output_file, filter_single_char=True):
+        """
+        主处理逻辑
+        :param source_folder: 包含txt的文件夹路径
+        :param output_file: 输出的csv文件路径
+        :param filter_single_char: 是否过滤单字
+        """
+        # 打印绝对路径方便调试，防止相对路径出错
+        abs_source_path = os.path.abspath(source_folder)
+        print(f"正在扫描文件夹: {abs_source_path}")
+        
+        files = self.get_all_txt_files(source_folder)
+        
+        if not files:
+            print(f"错误: 在路径 '{source_folder}' 下未找到任何 .txt 文件。")
+            print("请检查你的 --novel_gen_task_id 和 --task_id 是否正确，或者路径结构是否匹配。")
+            return
+
+        print(f"共找到 {len(files)} 个文本文件，开始处理...")
+        
+        word_counter = Counter()
+
+        # for idx, file_path in tqdm(enumerate(files)):
+        # for idx, file_path in enumerate(tqdm(files, desc="处理进度")):
+        for idx, file_path in tqdm(enumerate(files), total=len(files), desc="处理进度"):
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    words = jieba.lcut(content)
+                    
+                    cleaned_words = []
+                    for word in words:
+                        word = word.strip()
+                        if not word:
+                            continue
+                        # 过滤单一字符
+                        if filter_single_char and len(word) < 2:
+                            continue
+                        cleaned_words.append(word)
+                    
+                    word_counter.update(cleaned_words)
+                    
+                # if (idx + 1) % 10 == 0:
+                #     print(f"已处理 {idx + 1}/{len(files)} 个文件...")
+                    
+            except UnicodeDecodeError:
+                print(f"Warning: 文件 {file_path} 编码非UTF-8，跳过。")
+            except Exception as e:
+                print(f"Error: 处理文件 {file_path} 出错: {e}")
+
+        # 确保输出目录存在
+        output_dir = os.path.dirname(output_file)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        print(f"正在写入结果到 {output_file} ...")
+        try:
+            with open(output_file, 'w', newline='', encoding='utf-8-sig') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(['词', '出现次数'])
+                for word, count in word_counter.most_common():
+                    writer.writerow([word, count])     
+            print("完成！统计结果已生成。")
+            
+        except IOError as e:
+            print(f"写入 CSV 失败: {e}")
+
     def zip_novel_folder(self, novel_dir: str):
         try:
             self.logger.info("正在打包文件以便下载...")
@@ -1252,6 +1338,10 @@ class NovelGenerator:
             self.logger.info(f"正在更新 Excel 中的生成时间统计...")
             self.save_outline_to_excel(outline, novel_dir, novel_title, task_data=task)
             # -------------------------------------------------------
+
+            word_frequency_path = os.path.join(novel_dir, 'word_frequency.csv')
+            self.logger.info(f"正在生成 词频 统计...")
+            self.generate_word_frequency(content_dir, word_frequency_path, filter_single_char=True)
 
             self.logger.info(f"任务结束: {task_id}")
             self.zip_novel_folder(novel_dir)

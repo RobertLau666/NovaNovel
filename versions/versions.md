@@ -58,7 +58,7 @@
 5. content/中加上卷文件夹
 6. 加上v7，去掉“每章”、“都”等字眼，改为“适当”
 7. 加上RANDOM_DIRECTIVE_PROMPTS，去掉单调性
-
+8. 加上词频统计
 
 
 # app_gradio
