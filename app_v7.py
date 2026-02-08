@@ -881,7 +881,8 @@ class NovelGenerator:
         # 🟢 [新功能] 随机抽取一条“导演指令”，打破套路
         # 为了防止太随机，可以设定权重，或者每隔几章强制变奏一次
         # 这里使用纯随机演示：
-        random_directive_prompt = random.choice(prompts.RANDOM_DIRECTIVE_PROMPTS)
+        # random_directive_prompt = random.choice(prompts.RANDOM_DIRECTIVE_PROMPTS)
+        random_directive_prompt = prompts.RANDOM_DIRECTIVE_PROMPTS[0]
 
         prompt = f"""{context}
 
