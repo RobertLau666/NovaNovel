@@ -223,7 +223,7 @@ class NovelGenerator:
 请根据以下要求，构思一部甚至能霸榜的{task["novel_type"]}小说。
 
 【基础信息】
-- 创意/脑洞：{task["novel_idea"]}
+- 创意/脑洞：{task["novel_idea"]} (请尽情发挥想象力，不要局限于现有描述，进行发散思维)
 - 目标受众：{task["target_reader"]} (偏好快节奏、高爽点、有趣味)
 - 结构：共{task["volume_num"]}卷，每卷{task["chapter_num"]}章，每章约{task["chapter_word_num"]}字
 - 备注：{task["note"]}
@@ -234,8 +234,13 @@ class NovelGenerator:
 【本特定任务风格要求】
 {task.get("write_style", "精彩网文")}
 
+【创作禁忌】
+1. **禁止具体特指**：在设定中不要使用现实中特定的歌名、品牌名等（如不要写《最炫民族风》，而是写“一首节奏感极强的洗脑神曲”）。
+2. **禁止重复**：后续生成的剧情不要与之前的套路雷同，每一卷都要有新的核心冲突和创意。
+3. **想象力爆发**：在核心设定和卷大纲中，请大胆构思，制造意想不到的反转和宏大的世界观。
+
 【任务要求】
-请生成小说的宏观设定，严格返回以下JSON格式：
+请生成小说的宏观设定，**严格**遵循以下 JSON 结构返回。请确保 "核心设定与人物" 和 "卷详细大纲" 是并列关系，不要嵌套！
 {{
   "作品概述": {{
     "小说标题": "《取一个极具网感、吸引眼球的标题》",
@@ -298,7 +303,18 @@ class NovelGenerator:
         self.logger.info("正在生成宏观设定（含作品概述、人物设定、卷大纲）...")
         # 🟢 [修改] temperature=1.0 (最大化脑洞)，将 1.0 改为 0.9，提高 JSON 格式稳定性
         res = self.llm.call(prompt, "你是一位专业的网络小说策划师，擅长创作热门爆款小说大纲。请严格按照用户要求的JSON格式返回结果。", 0.9)
-        return self.extract_json_from_response(res)
+        res_json = self.extract_json_from_response(res)
+
+        # 🟢 [新增] 结构后处理/修复逻辑
+        if res_json:
+            # 检查 '卷详细大纲' 是否误入 '核心设定与人物'
+            if "卷详细大纲" not in res_json and "核心设定与人物" in res_json:
+                if "卷详细大纲" in res_json["核心设定与人物"]:
+                    print("⚠️ 检测到 JSON 层级错误，正在自动修复...")
+                    res_json["卷详细大纲"] = res_json["核心设定与人物"].pop("卷详细大纲")
+        
+        return res_json
+
 
     # 🟢 [新增] 辅助函数：获取当前阶段的剧情/风格指导
     def get_phase_instruction(self, current_vol: int, total_vols: int) -> str:
@@ -376,6 +392,9 @@ class NovelGenerator:
             end_chap = min(start_chap + BATCH_SIZE - 1, chapter_count)
             current_batch_count = end_chap - start_chap + 1
             
+            # 定义期望生成的 Keys 列表，用于校验
+            expected_keys = [f"{volume_index}-{i}" for i in range(start_chap, end_chap + 1)]
+
             self.logger.info(f"🔄 正在生成第 {volume_index} 卷：第 {start_chap} - {end_chap} 章大纲 (共{current_batch_count}章)...")
 
             # --- A. 构建“承上启下”的连接信息 ---
@@ -518,15 +537,49 @@ class NovelGenerator:
                     res = self.llm.call(prompt, sys_prompt, temperature=0.95)
                     batch_data = self.extract_json_from_response(res)
                     
+                    # if batch_data:
+                    #     # 简单校验：生成的数量是否大致对得上（允许少许误差，主要看Key是否存在）
+                    #     # 只要有数据回来，就视为成功，update 进去
+                    #     all_generated_chapters.update(batch_data)
+                    #     batch_success = True
+                    #     self.logger.info(f"✅ 第 {start_chap}-{end_chap} 章大纲生成成功。")
+                    #     break
+                    # else:
+                    #     self.logger.warning(f"⚠️ API返回为空或解析失败，重试 ({retry+1}/3)...")
+
                     if batch_data:
-                        # 简单校验：生成的数量是否大致对得上（允许少许误差，主要看Key是否存在）
-                        # 只要有数据回来，就视为成功，update 进去
-                        all_generated_chapters.update(batch_data)
-                        batch_success = True
-                        self.logger.info(f"✅ 第 {start_chap}-{end_chap} 章大纲生成成功。")
-                        break
+                        # 🟢 [新增] 强制修正 Key 格式 & 完整性校验
+                        sanitized_data = {}
+                        missing_keys = []
+                        
+                        # 先尝试修正 Key
+                        for k, v in batch_data.items():
+                            str_k = str(k)
+                            # 如果 AI 只返回了 "16" 这种纯数字 Key，补全为 "9-16"
+                            if "-" not in str_k and str_k.isdigit():
+                                new_key = f"{volume_index}-{str_k}"
+                            else:
+                                new_key = str_k
+                            sanitized_data[new_key] = v
+                        
+                        # 检查是否缺失了某些章节
+                        current_keys = list(sanitized_data.keys())
+                        for exp_k in expected_keys:
+                            if exp_k not in current_keys:
+                                missing_keys.append(exp_k)
+                        
+                        if len(missing_keys) == 0:
+                            # 完美，全部生成
+                            all_generated_chapters.update(sanitized_data)
+                            batch_success = True
+                            self.logger.info(f"✅ 第 {start_chap}-{end_chap} 章大纲生成成功。")
+                            break
+                        else:
+                            self.logger.warning(f"⚠️ 第 {start_chap}-{end_chap} 章生成不完整，缺失: {missing_keys}。正在重试 ({retry+1}/3)...")
+                            # 可以在这里做一个更高级的逻辑：只请求缺失的章节（暂不展开，简单重试通常能解决）
                     else:
                         self.logger.warning(f"⚠️ API返回为空或解析失败，重试 ({retry+1}/3)...")
+
                 except Exception as e:
                     self.logger.warning(f"⚠️ 第 {start_chap}-{end_chap} 章生成异常: {e}，重试 ({retry+1}/3)...")
                     time.sleep(2)
@@ -884,58 +937,94 @@ class NovelGenerator:
         # random_directive_prompt = random.choice(prompts.RANDOM_DIRECTIVE_PROMPTS)
         random_directive_prompt = prompts.RANDOM_DIRECTIVE_PROMPTS[0]
 
+#         prompt = f"""{context}
+
+# 【写作指令】
+# 你现在就是网文界的“大神作家”，请根据大纲撰写正文（字数要求：{chapter_word_num}字左右）。
+
+# 【核心要求：想象力与去套路化】
+# 1. **剧情至上**：一切描写服务于剧情推进。不要为了震惊而震惊。
+# 2. **禁止重复**：严禁与前文（尤其是前几章）出现雷同的桥段、对话或描写方式。每一章都要有新的看点。
+# 3. **发挥想象力**：在遵循大纲的前提下，尽情丰富细节。如果是战斗，请设计独特的招式；如果是对话，请设计有趣的潜台词。
+# 2. **去套路化**：
+#    - 严禁重复出现{prompts.PROHIBITED_WORDS}等词或者重复套路！如果大纲里有，请用侧面描写（如”大家都屏息凝神“、“反派手中的笔折断”）来替代这些词。
+#    - 如果本章是“铺垫”或“悬疑”基调，不需要强行制造高潮。
+# 3. **逻辑自洽**：人物行为必须符合逻辑，不要强行降智。
+# 4. **沉浸感**：多用感官描写（视觉、听觉、触觉）。
+# 5. **{start_requirement}**
+# 6. **场景描写**：只写必要场景，多用动词，少用形容词。
+# 7. **对话互动**：对话要有梗，人物之间要有拉扯感。主角内心戏可以适当发癫（中二/吐槽）。
+
+# 【一、当前全书阶段要求】
+# {phase_style}
+
+# 【二、本章节奏控制】
+# 1. **大纲预设节奏**：{pacing_instruction}
+# 2. **卷内位置修正**：{micro_pacing}
+
+# 【三、大神级文笔规范】
+# {self.style_guide_prompt}
+
+# 【四、本章笔法润色（变奏指令）】
+# 👉 **{random_directive_prompt}**
+# ⚠️ **重要执行原则**：
+# 1. 上述“变奏指令”旨在丰富文章的阅读体验，**仅在与当前剧情不冲突的前提下执行**。
+# 2. **剧情逻辑优先级最高**。如果本章大纲是悲剧，而指令要求“动作轻快”，请忽略指令，**必须优先保证剧情氛围的合理性**。
+# 3. 请灵活运用该技巧，将其自然融入故事，不要生搬硬套。
+
+# 【大神级镜头控制】
+# - 70% 的篇幅用于描写对话和即时动作，30% 用于心理活动。
+# - 严禁‘上帝视角’的说明文，必须通过主角的视角看世界（第一人称或受限第三人称）。
+# - 加入‘情绪标识符’：主角此刻的心情是愤怒、戏谑还是冷静？请通过细节（如：指尖颤抖、嘴角上扬）表达出来。
+
+# 【格式要求】
+# 正文结束后，换行输出 "{self.chapter_summary_separator}"。
+# 然后写一段本章的**功能性摘要**（300字以内），摘要必须包含：
+# - 本章发生的关键剧情转折、核心进展。
+# - 主角获得的物品/能力/信息（如有）。
+# - 人物关系的重要变化（如有）。
+# - 留下的悬念/伏笔（供下一章参考）。
+# """
+
         prompt = f"""{context}
 
-【写作指令】
-你现在就是网文界的“大神作家”，请根据大纲撰写正文（字数要求：{chapter_word_num}字左右）。
-一切剧情演绎必须严丝合缝地锚定在给定的【本章大纲】之内。严禁为了制造冲突而凭空捏造与后续大纲冲突的人物或设定。
+【角色设定】
+你现在是网文界的“白金大神”，请根据上方提供的大纲撰写本章正文（目标字数：{chapter_word_num}字左右）。
 
-【一、当前全书阶段要求】
-{phase_style}
+【一、核心红线（必须遵守）】
+1. **开篇要求**：**{start_requirement}**
+2. **剧情锚定**：一切剧情演绎必须严丝合缝地服务于【本章大纲】，**剧情逻辑优先级最高**。
+3. **去套路化禁令**：
+   - **严禁**重复出现 {prompts.PROHIBITED_WORDS} 等廉价词汇！
+   - **严禁**与前几章出现雷同的桥段或描写方式。
+   - 如果大纲里有“震惊”情节，**必须**用侧面描写（如“手中的笔被折断”、“嘈杂的现场瞬间落针可闻”）来替代苍白的形容词。
 
-【二、本章节奏控制】
-1. **大纲预设节奏**：{pacing_instruction}
-2. **卷内位置修正**：{micro_pacing}
+【二、节奏与基调控制】
+1. **全书阶段侧重**：{phase_style}
+2. **本章节奏指令**：{pacing_instruction}
+3. **卷内位置微调**：{micro_pacing}
+   *(请根据上述三点动态调整叙事速度和冲突密度)*
 
 【三、大神级文笔规范】
 {self.style_guide_prompt}
+*(注：请重点参考上述规范中的“极致力场”和“超级钩子”)*
 
-【四、本章笔法润色（变奏指令）】
+【四、本章专属变奏（笔法润色）】
 👉 **{random_directive_prompt}**
-⚠️ **重要执行原则**：
-1. 上述“变奏指令”旨在丰富文章的阅读体验，**仅在与当前剧情不冲突的前提下执行**。
-2. **剧情逻辑优先级最高**。如果本章大纲是悲剧，而指令要求“动作轻快”，请忽略指令，**必须优先保证剧情氛围的合理性**。
-3. 请灵活运用该技巧，将其自然融入故事，不要生搬硬套。
+*(说明：这是本章的特色指令。请在不破坏剧情逻辑的前提下，重点运用此技巧，避免行文千篇一律。)*
 
-【五、基础写作规范】
-1. **剧情至上**：一切描写服务于剧情推进。不要为了震惊而震惊。
-2. **去套路化**：
-   - 严禁重复出现{prompts.PROHIBITED_WORDS}等词或者重复套路！如果大纲里有，请用侧面描写（如”大家都屏息凝神“、“反派手中的笔折断”）来替代这些词。
-   - 如果本章是“铺垫”或“悬疑”基调，不需要强行制造高潮。
-3. **逻辑自洽**：人物行为必须符合逻辑，不要强行降智。
-4. **沉浸感**：多用感官描写（视觉、听觉、触觉）。
-
-【其他文风要求】
-{outline["作品概述"].get("文风", "精彩网文")}
-
-【本章特别要求】
-1. **{start_requirement}**
-2. **场景描写**：只写必要场景，多用动词，少用形容词。
-3. **对话互动**：对话要像“网聊”一样有梗，人物之间要有拉扯感。主角内心戏可以适当发癫（中二/吐槽）。
-4. **逻辑自洽**：虽然情节可以荒诞有趣，但人物的行为逻辑必须符合其人设（尤其是高智商反派，不要强行降智）。
-
-【大神级镜头控制】
-- 70% 的篇幅用于描写对话和即时动作，30% 用于心理活动。
-- 严禁‘上帝视角’的说明文，必须通过主角的视角看世界（第一人称或受限第三人称）。
-- 加入‘情绪标识符’：主角此刻的心情是愤怒、戏谑还是冷静？请通过细节（如：指尖颤抖、嘴角上扬）表达出来。
+【五、镜头与细节控制】
+1. **拒绝上帝视角**：镜头必须紧跟主角（或POV人物），只描写他能看到、听到、感知到的事物。
+2. **动态画面感**：多用动词，少用形容词。战斗要写出物理破坏感，对话要写出微表情和潜台词。
+3. **情绪标识符**：通过细节（如指尖颤抖、呼吸急促、嘴角上扬）来隐晦地表达人物情绪，而不是直接写“他很生气”。
 
 【格式要求】
 正文结束后，换行输出 "{self.chapter_summary_separator}"。
-然后写一段本章的**功能性摘要**（300字以内），摘要必须包含：
-- 本章发生的关键剧情转折、核心进展。
+然后写一段本章的**功能性摘要**（150字以内），摘要必须包含：
+- 本章发生的关键剧情转折。
 - 主角获得的物品/能力/信息（如有）。
-- 人物关系的重要变化（如有）。
-- 留下的悬念/伏笔（供下一章参考）。
+- 人物关系的重要变化。
+- 留下的悬念/伏笔。
 """
 
         self.logger.info(f"正在生成: {volume}-{chapter} {title}")
