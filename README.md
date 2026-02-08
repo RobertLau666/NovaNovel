@@ -55,7 +55,7 @@ Or you can ask [Google AI Studio](https://aistudio.google.com/) for novel genera
 - **write_style**: 5个以上关键词。推荐加入：群像, 智斗, 幕后流, 克苏鲁, 唯我独法, 迪化, 慢热神作等能增加厚度的词。
 - **target_reader**: 男性/女性/通用。
 - **note**: 给生成器的特别指令（留空或填写如：“前期注重氛围渲染”、“主角不论何时保持优雅”）。
-- **其他数值**: volume_num(10), chapter_num(80), chapter_word_num(2100), status(0), outline_done(0), novel_gen_start_time(), novel_gen_end_time()。
+- **其他数值**: volume_num(10), chapter_num(60), chapter_word_num(2000), status(0), outline_done(0), novel_gen_start_time(), novel_gen_end_time()。
 
 # Output Format:
 task_id,novel_type,novel_idea,write_style,target_reader,note,volume_num,chapter_num,chapter_word_num,status,outline_done,novel_gen_start_time,novel_gen_end_time
