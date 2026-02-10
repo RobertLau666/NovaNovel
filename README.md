@@ -65,8 +65,8 @@ task_id,novel_type,novel_idea,write_style,target_reader,note,volume_num,chapter_
 
 现在，请生成30条数据：
 ```
-
-## Quick Start
+## Start
+### Quick Start
 - Linux/macOS users:
 1. First, you need to grant execution permission to the script: Open the terminal and run ```chmod +x start.sh```.
 2. Starting method: Run ```./start.sh``` in the terminal.
@@ -74,8 +74,8 @@ task_id,novel_type,novel_idea,write_style,target_reader,note,volume_num,chapter_
 - Windows users:
 1. Just double-click ```start.bat```. Or if you have installed Git Bash, you can right-click and select ```Git Bash Here``` then run ```./start.sh```.
 
-## Manual Start
-### Install
+### Manual Start
+#### Install
 ```bash
 # 1. Clone repository
 git clone https://github.com/RobertLau666/AINovel.git
@@ -87,8 +87,8 @@ conda activate ainovel
 pip install -r requirements.txt
 ```
 
-### Run
-#### Command
+#### Run
+##### Command
 ```bash
 python app.py                            # Process all tasks
 python app.py -i 1                       # Only process task_id=1
@@ -99,7 +99,7 @@ python app.py -f test.csv               # Specify task file
 python app.py -i 1 --gen-cover           # Only process task_id=1, use cover generation
 ```
 
-#### Gradio
+##### Gradio
 ```bash
 python app_gradio.py --port 8080 --share
 ```
