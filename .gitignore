@@ -1,6 +1,7 @@
 __pycache__/
 .env
 .gradio
+venv/
 
 novels*
 novel_gen_tasks/*
