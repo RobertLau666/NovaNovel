@@ -82,7 +82,7 @@ if [ ! -f "$FRPC_FILE" ]; then
         echo -e "${RED}[WARN] 下载超时或失败 (国内网络原因)${NC}"
         echo -e "${RED}       已跳过此步骤，程序将继续启动。${NC}"
         echo -e "${RED}       (注意：本次启动无法生成 Share 公开链接，仅限本地访问)${NC}"
-        echo -e "       若需 Share 功能，请手动下载: $DOWNLOAD_URL 文件；重命名为 frpc_darwin_amd64_v0.3；并放入: $FRPC_DIR 文件夹中"
+        echo -e "若需 Share 功能：1. 请手动下载: $DOWNLOAD_URL 文件；2. 重命名为 frpc_darwin_amd64_v0.3；3. 放入: $FRPC_DIR 文件夹中。"
     fi
 fi
 
@@ -104,7 +104,13 @@ while ! nc -z localhost $PORT >/dev/null 2>&1; do
         echo -e "\n${RED}[ERROR] Python 程序启动失败！${NC}"
         # 尝试前台运行一次以显示报错
         echo -e "${YELLOW}正在尝试前台运行以捕获错误信息：${NC}"
+        # python app_gradio_v3.py --port $PORT --share
+
+        # 🟢 [修改] 增加环境变量，允许 macOS 使用 fork 模式，并强制无缓冲输出
+        export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+        export PYTHONUNBUFFERED=1
         python app_gradio_v3.py --port $PORT --share
+
         exit 1
     fi
     

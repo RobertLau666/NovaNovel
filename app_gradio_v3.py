@@ -1,16 +1,26 @@
-import gradio as gr
 import os
-import shutil
-import pandas as pd
+import sys
 import time
-import threading
 import glob
+import shutil
 import argparse
+import threading
+import multiprocessing
+import pandas as pd
+import gradio as gr
 from dotenv import load_dotenv
 from concurrent.futures import ProcessPoolExecutor
-
 # 导入核心逻辑
 from app_v7 import DeepSeekClient, DMXImageAPIGenerator, NovelGenerator, run_single_task_worker
+
+# 🟢 [新增] 适配 macOS 的多进程设置
+if sys.platform == 'darwin':
+    # 强制在 macOS 上使用 'fork' 模式（模拟 Linux 行为）
+    # 注意：这需要设置环境变量 OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES 才能在 macOS 上稳定运行
+    try:
+        multiprocessing.set_start_method('fork', force=True)
+    except RuntimeError:
+        pass
 
 # 加载环境变量
 load_dotenv()
