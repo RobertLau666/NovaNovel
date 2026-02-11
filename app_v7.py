@@ -1254,7 +1254,8 @@ class NovelGenerator:
     # ======================== 处理单个任务 ========================
 
     def process_task(self, task: Dict, task_id: int) -> bool:
-        novel_dir = os.path.join(self.novels_dir, os.path.splitext(os.path.basename(self.tasks_csv_path))[0], f"task_{task_id}")
+        novel_csv_name = os.path.splitext(os.path.basename(self.tasks_csv_path))[0]
+        novel_dir = os.path.join(self.novels_dir, f"csv-{novel_csv_name}", f"csv-{novel_csv_name}_task-{task_id}")
         os.makedirs(novel_dir, exist_ok=True)
         self.logger.info(f"工作目录: {novel_dir}")
 
@@ -1262,7 +1263,7 @@ class NovelGenerator:
         task['novel_gen_start_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         # 🟢 设置 Logger 并接管 stdout/stderr
-        custom_logger = Logger(os.path.join(novel_dir, f"task_{task_id}.log"), task)
+        custom_logger = Logger(os.path.join(novel_dir, f"log.log"), task)
         original_stdout = sys.stdout
         original_stderr = sys.stderr
         
@@ -1499,7 +1500,7 @@ def main():
     # 加载 .env 文件
     load_dotenv()
     parser = argparse.ArgumentParser()
-    parser.add_argument('-f', '--tasks_csv_path', default="./novel_gen_tasks/test.csv")
+    parser.add_argument('-f', '--tasks_csv_path', default="./novel_csvs/test.csv")
     parser.add_argument('-i', '--task_ids', type=str)
     parser.add_argument('--gen-cover', action='store_true', help='Whether to use the cover generation function')
     args = parser.parse_args()

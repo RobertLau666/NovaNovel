@@ -4,5 +4,5 @@ __pycache__/
 venv/
 
 novels*
-novel_gen_tasks/*
-!novel_gen_tasks/test.csv
+novel_csvs/*
+!novel_csvs/test.csv
