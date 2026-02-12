@@ -154,7 +154,10 @@ Use [ChatGPT](https://chatgpt.com/) to expand content, prompt is as follows:
 ```
 
 ## Release
-Release the generated novel on [番茄小说网](https://fanqienovel.com/).
+Release the generated novel on [番茄小说网](https://fanqienovel.com/). The [rules](https://fanqienovel.com/welfare?enter_from=menu) are as follows:
+```
+小说内容生成好后，立刻上传并立即发布部分，然后签约（到2万字）、推荐验证（到8万字）、推荐（到10万字）等，达到10万字的次月开始可算全勤，之后确保每天至少更新6000字以上，然后上传当前月和下一月的字数，定下月月末闹钟，根据下月收益决定是否上传下下月的内容
+```
 
 ## Reference
 1. Code version update information: [versions.md](versions/versions.md)
