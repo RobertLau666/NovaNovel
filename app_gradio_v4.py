@@ -71,48 +71,6 @@ def parse_task_ids(text_input, all_ids):
     valid_ids = [tid for tid in selected_ids if tid in all_ids]
     return sorted(list(valid_ids))
 
-# def read_specific_log(task_id, csv_filename=None):
-#     """
-#     读取特定 Task ID 的日志
-#     :param task_id: 任务ID
-#     :param csv_filename: CSV文件名 (用于定位子目录)
-#     """
-#     # 优先尝试精确路径: novels/{csv_name}/task_{id}/task_{id}.log
-#     if csv_filename:
-#         csv_name = os.path.splitext(csv_filename)[0]
-#         log_path = os.path.join(NOVELS_DIR, csv_name, f"task_{task_id}", f"task_{task_id}.log")
-        
-#         if os.path.exists(log_path):
-#             try:
-#                 with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
-#                     return f.read()
-#             except Exception as e:
-#                 return f"读取日志出错: {e}"
-    
-#     # 如果精确路径找不到（可能是刚开始生成，目录还没建好），尝试全局搜索（兼容旧结构）
-#     search_pattern = os.path.join(NOVELS_DIR, "**", f"task_{task_id}", f"task_{task_id}.log")
-#     found_files = glob.glob(search_pattern, recursive=True)
-    
-#     if found_files:
-#         try:
-#             # 如果有多个，优先选最新的或者路径匹配的
-#             target_file = found_files[0]
-#             if csv_filename:
-#                 csv_name_clean = os.path.splitext(csv_filename)[0]
-#                 for f in found_files:
-#                     if csv_name_clean in f:
-#                         target_file = f
-#                         break
-            
-#             with open(target_file, 'r', encoding='utf-8', errors='ignore') as f:
-#                 return f.read()
-#         except Exception as e:
-#             return f"读取日志出错: {e}"
-            
-#     # 还没找到
-#     path_hint = log_path if csv_filename else search_pattern
-#     return f"⏳ 正在初始化日志文件...\n(Target: {path_hint})"
-
 def read_specific_log(task_id, csv_filename=None):
     """
     读取特定 Task ID 的日志
@@ -367,7 +325,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     gradio_title = "📚 AINovel (Gradio)"
-    gradio_title = "Gradio"
     with gr.Blocks(title=gradio_title) as demo:
         gr.Markdown(f"## {gradio_title}")
         
