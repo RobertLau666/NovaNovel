@@ -447,7 +447,8 @@ class NovelGenerator:
             prompt = f'''你是一位对剧情节奏把控极强的网文主编。请基于以下设定，为《{overview.get("小说标题")}》第{volume_index}卷创作分章细纲。
 
 【全局设定】
-- 类型/文风：{overview.get("类型")} / {overview.get("文风")}
+- 类型：{overview.get("类型")}
+- 文风：{overview.get("文风")} + {','.join(prompts.WRITE_STYLES)}
 - 核心创意：{overview.get("核心爽点和创意")}
 - 简介：{overview.get("小说简介")}
 
@@ -1010,7 +1011,7 @@ class NovelGenerator:
 *(注：请重点参考上述规范中的“极致力场”和“超级钩子”)*
 
 【四、本章专属变奏（笔法润色）】
-👉 **{random_directive_prompt}**
+**{random_directive_prompt}**
 *(说明：这是本章的特色指令。请在不破坏剧情逻辑的前提下，重点运用此技巧，避免行文千篇一律。)*
 
 【五、镜头与细节控制】

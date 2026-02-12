@@ -52,10 +52,10 @@ Or you can ask [Google AI Studio](https://aistudio.google.com/) for novel genera
     2. **金手指机制**：具体功能 + **代价/限制**（例如：能看到回报率，但必须先亏损；能复活，但会丢失记忆）。
     3. **核心主线**：一个贯穿全书的宏大目标（不仅仅是变强，而是如“复苏神话”、“修补天道”等）。
     4. **黄金钩子**：开篇的具体高潮画面，侧重**情绪价值**（震撼、诡异、感动）而非单纯的搞笑。
-- **write_style**: 5个以上关键词（如：群像, 智斗, 幕后流, 克苏鲁, 唯我独法, 迪化, 慢热神作等能增加厚度的词。），且必包含：搞笑, 脑洞, 无脑爽
+- **write_style**: 4个以上关键词（如：群像, 智斗, 幕后流, 克苏鲁, 唯我独法, 迪化, 慢热神作等能增加厚度的词。）
 - **target_reader**: 男性/女性/通用。
 - **note**: 给生成器的特别指令（留空或填写如：“前期注重氛围渲染”、“主角不论何时保持优雅”）。
-- **其他数值**: volume_num(10), chapter_num(60), chapter_word_num(2000), status(0), outline_done(0), novel_gen_start_time(), novel_gen_end_time()。
+- **其他数值**: volume_num(10), chapter_num(50), chapter_word_num(2000), status(0), outline_done(0), novel_gen_start_time(), novel_gen_end_time()。
 
 # Output Format:
 task_id,novel_type,novel_idea,write_style,target_reader,note,volume_num,chapter_num,chapter_word_num,status,outline_done,novel_gen_start_time,novel_gen_end_time
