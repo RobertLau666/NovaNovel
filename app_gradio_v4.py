@@ -367,6 +367,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     gradio_title = "📚 AINovel (Gradio)"
+    gradio_title = "Gradio"
     with gr.Blocks(title=gradio_title) as demo:
         gr.Markdown(f"## {gradio_title}")
         

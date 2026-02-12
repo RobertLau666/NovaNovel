@@ -218,21 +218,21 @@ class NovelGenerator:
 
     # ======================== 大纲生成与修复模块 ========================
 
-    def generate_global_settings(self, task: Dict) -> Optional[Dict]:
+    def generate_global_settings(self, task_data: Dict) -> Optional[Dict]:
         prompt = f'''你是一位不仅精通爽文套路，更擅长“反套路”和“脑洞文”的顶尖网文大神。
-请根据以下要求，构思一部甚至能霸榜的{task["novel_type"]}小说。
+请根据以下要求，构思一部甚至能霸榜的{task_data["novel_type"]}小说。
 
 【基础信息】
-- 创意/脑洞：{task["novel_idea"]} (请尽情发挥想象力，不要局限于现有描述，进行发散思维)
-- 目标受众：{task["target_reader"]} (偏好快节奏、高爽点、有趣味)
-- 结构：共{task["volume_num"]}卷，每卷{task["chapter_num"]}章，每章约{task["chapter_word_num"]}字
-- 备注：{task["note"]}
+- 创意/脑洞：{task_data["novel_idea"]} (请尽情发挥想象力，不要局限于现有描述，进行发散思维)
+- 目标受众：{task_data["target_reader"]} (偏好快节奏、高爽点、有趣味)
+- 结构：共{task_data["volume_num"]}卷，每卷{task_data["chapter_num"]}章，每章约{task_data["chapter_word_num"]}字
+- 备注：{task_data["note"]}
 
 【通用质量标准】
 {self.style_guide_prompt}
 
 【本特定任务风格要求】
-{task.get("write_style", "精彩网文")}
+{task_data.get("write_style", "精彩网文")}
 
 【创作禁忌】
 1. **禁止具体特指**：在设定中不要使用现实中特定的歌名、品牌名等（如不要写《最炫民族风》，而是写“一首节奏感极强的洗脑神曲”）。
@@ -246,13 +246,13 @@ class NovelGenerator:
     "小说标题": "《取一个极具网感、吸引眼球的标题》",
     "小说副标题": "xxx",
     "小说简介": "写一个黄金三章式的简介，突出金手指、核心矛盾和爽点，让人看一眼就想点进去",
-    "类型": "{task["novel_type"]}",
-    "文风": "{task["write_style"]}",
+    "类型": "{task_data["novel_type"]}",
+    "文风": "{task_data["write_style"]}",
     "核心爽点和创意": "xxx",
     "市场分析与亮点总结": "xxx",
-    "小说卷数": {task["volume_num"]},
-    "小说章数": {task["chapter_num"]},
-    "每章字数约": {task["chapter_word_num"]}
+    "小说卷数": {task_data["volume_num"]},
+    "小说章数": {task_data["chapter_num"]},
+    "每章字数约": {task_data["chapter_word_num"]}
   }},
   "核心设定与人物": {{
     "1": {{
@@ -295,7 +295,7 @@ class NovelGenerator:
 }}
 
 重要：
-1. 根据卷数{task["volume_num"]}，生成对应数量的卷大纲（注意：此步骤不生成章大纲，章大纲会在后续步骤按卷生成）
+1. 根据卷数{task_data["volume_num"]}，生成对应数量的卷大纲（注意：此步骤不生成章大纲，章大纲会在后续步骤按卷生成）
 2. 人物至少6-10个主要角色，每个角色要有完整的设定，人物关系要错综复杂
 3. 生成内容中避免出现“每章都有xxx”、“每章必须xxx”之类的局限性的要求
 4. 只返回JSON，不要任何其他内容
@@ -595,13 +595,13 @@ class NovelGenerator:
 
         return all_generated_chapters
 
-    def check_and_fix_outline(self, outline: Dict, task: Dict, outline_path: str, novel_dir: str) -> Tuple[Dict, bool]:
+    def check_and_fix_outline(self, outline: Dict, task_data: Dict, outline_path: str, novel_dir: str) -> Tuple[Dict, bool]:
         updated = False
         if "章详细大纲" not in outline:
             outline["章详细大纲"] = {}
             
-        required_volumes = int(task["volume_num"])
-        required_chapters = int(task["chapter_num"])
+        required_volumes = int(task_data["volume_num"])
+        required_chapters = int(task_data["chapter_num"])
         current_chapters = outline.get("章详细大纲", {})
         existing_keys = list(current_chapters.keys())
         novel_title = outline.get("作品概述", {}).get("小说标题", "未命名")
@@ -639,7 +639,7 @@ class NovelGenerator:
                         self.logger.error(f"JSON即时保存失败: {e}")
 
                     try:
-                        self.save_outline_to_excel(outline, novel_dir, novel_title, task_data=task)
+                        self.save_outline_to_excel(outline, novel_dir, novel_title, task_data=task_data)
                     except Exception as e:
                         self.logger.error(f"Excel即时保存失败: {e}")
                 else:
@@ -1189,7 +1189,7 @@ class NovelGenerator:
         
         if not files:
             print(f"错误: 在路径 '{source_folder}' 下未找到任何 .txt 文件。")
-            print("请检查你的 --novel_gen_task_id 和 --task_id 是否正确，或者路径结构是否匹配。")
+            print("请检查你的 --novel_csv_name 和 --task_id 是否正确，或者路径结构是否匹配。")
             return
 
         print(f"共找到 {len(files)} 个文本文件，开始处理...")
@@ -1253,17 +1253,17 @@ class NovelGenerator:
 
     # ======================== 处理单个任务 ========================
 
-    def process_task(self, task: Dict, task_id: int) -> bool:
+    def process_task(self, task_data: Dict, task_id: int) -> bool:
         novel_csv_name = os.path.splitext(os.path.basename(self.tasks_csv_path))[0]
         novel_dir = os.path.join(self.novels_dir, f"csv-{novel_csv_name}", f"csv-{novel_csv_name}_task-{task_id}")
         os.makedirs(novel_dir, exist_ok=True)
         self.logger.info(f"工作目录: {novel_dir}")
 
         # 🟢 [新增] 记录开始生成时间并存入 task 字典
-        task['novel_gen_start_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        task_data['novel_gen_start_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         # 🟢 设置 Logger 并接管 stdout/stderr
-        custom_logger = Logger(os.path.join(novel_dir, f"log.log"), task)
+        custom_logger = Logger(os.path.join(novel_dir, f"log.log"), task_data)
         original_stdout = sys.stdout
         original_stderr = sys.stderr
         
@@ -1305,16 +1305,18 @@ class NovelGenerator:
                     
             if not outline:
                 self.logger.info("生成新宏观设定...")
-                outline = self.generate_global_settings(task)
-                if not outline: 
+                outline = self.generate_global_settings(task_data)
+                if not outline:
                     self.logger.error("宏观设定生成失败")
                     return False
                 with open(outline_path, 'w', encoding='utf-8') as f:
                     json.dump(outline, f, ensure_ascii=False, indent=2)
                 self.logger.info(f"💾 宏观设定已保存: {outline_path}")
             
+            outline["用户初始设定"] = task_data
+
             # 2. 补全大纲
-            outline, was_repaired = self.check_and_fix_outline(outline, task, outline_path, novel_dir)
+            outline, was_repaired = self.check_and_fix_outline(outline, task_data, outline_path, novel_dir)
             
             with open(outline_path, 'w', encoding='utf-8') as f:
                 json.dump(outline, f, ensure_ascii=False, indent=2)
@@ -1323,7 +1325,7 @@ class NovelGenerator:
             excel_path = os.path.join(novel_dir, "outline.xlsx")
             
             if not os.path.exists(excel_path):
-                self.save_outline_to_excel(outline, novel_dir, novel_title, task_data=task)
+                self.save_outline_to_excel(outline, novel_dir, novel_title, task_data=task_data)
             
             self.update_task_csv(self.tasks_csv_path, task_id, outline_done=1)
 
@@ -1364,7 +1366,7 @@ class NovelGenerator:
             done_set = progress["done_set"]
             prev_chapters = progress["prev_chapters"]
             
-            volume_num, chap_num = int(task["volume_num"]), int(task["chapter_num"])
+            volume_num, chap_num = int(task_data["volume_num"]), int(task_data["chapter_num"])
             chapter_outlines = outline.get("章详细大纲", {})
             
             for r in range(1, volume_num + 1):
@@ -1398,7 +1400,7 @@ class NovelGenerator:
                         is_volume_dirty = True
                         continue
                     
-                    content, chapter_summary = self.generate_chapter(outline, r, c, prev_chapters, int(task["chapter_word_num"]))
+                    content, chapter_summary = self.generate_chapter(outline, r, c, prev_chapters, int(task_data["chapter_word_num"]))
                     
                     # [修改] 计算字数
                     content_len = len(content) if content else 0
@@ -1425,9 +1427,9 @@ class NovelGenerator:
             # -------------------------------------------------------
             # 🟢 [关键修改] 任务正文全部生成完毕后，更新结束时间并重写 Excel
             # -------------------------------------------------------
-            task['novel_gen_end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            task_data['novel_gen_end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             self.logger.info(f"正在更新 Excel 中的生成时间统计...")
-            self.save_outline_to_excel(outline, novel_dir, novel_title, task_data=task)
+            self.save_outline_to_excel(outline, novel_dir, novel_title, task_data=task_data)
             # -------------------------------------------------------
 
             word_frequency_path = os.path.join(novel_dir, 'word_frequency.csv')
@@ -1440,8 +1442,8 @@ class NovelGenerator:
             
         except Exception as e:
             # 🟢 [建议添加] 哪怕失败了，也记录一下结束时间，方便排查耗时
-            task['novel_gen_end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S (异常中断)')
-            self.save_outline_to_excel(outline, novel_dir, novel_title, task_data=task)
+            task_data['novel_gen_end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S (异常中断)')
+            self.save_outline_to_excel(outline, novel_dir, novel_title, task_data=task_data)
 
             self.logger.exception(f"任务执行过程中发生未捕获异常: {e}")
             return False

@@ -13,7 +13,7 @@ DMX_API_KEY=
 ```
 
 ## Set novel tasks
-Edit `*.csv` and put it under dir ```novel_gen_tasks/```.
+Edit `*.csv` and put it under dir ```novel_csvs/```.
 
 | Field                | Description                      | Example                              |
 |----------------------|----------------------------------|--------------------------------------|
@@ -95,7 +95,7 @@ python app.py -i 1                       # Only process task_id=1
 python app.py -i 1,3,6                   # Process task_id=1,3,6
 python app.py -i 3-6                     # Process task_id=3,4,5,6
 python app.py -i 1,3-5,8                 # Mixed format: task_id=1,3,4,5,8
-python app.py -f test.csv               # Specify task file
+python app.py -f test.csv                # Specify task file
 python app.py -i 1 --gen-cover           # Only process task_id=1, use cover generation
 ```
 
@@ -110,22 +110,29 @@ Then open local URL: ```http://0.0.0.0:8080``` or public URL, such as ```https:/
 ## Output Structure
 ```
 novels/
-├── task_[id]/
-│   ├── task_[id].log      # Log
-│   ├── outline.xlsx       # Outline (Multiple Sheets, Including Chapter Progress)
-│   ├── outline.json       # Original outline JSON
-│   ├── cover/             # Novel cover (if you use cover generation)
-│   └── content/           # Novel content
-│       ├── 1-1.txt        # Roll1-Chapter1
-│       ├── 1-2.txt        # Roll1-Chapter2
-│       └── ...
-└── task_[id].zip          # Package .zip file
+├── csv-[novel_csv_name]/
+│   ├── csv-[novel_csv_name]_task-[task_id]/
+│   │   ├── log.log                 # Log
+│   │   ├── outline.xlsx            # Outline (Multiple Sheets, Including Chapter Progress)
+│   │   ├── outline.json            # Original outline JSON
+│   │   ├── cover/                  # Novel cover (if you use cover generation)
+│   │   └── content/                # Novel content
+│   │       ├── 1/                  # Roll1
+│   │       │   ├── 1-1.txt         # Roll1-Chapter1
+│   │       │   ├── 1-2.txt         # Roll1-Chapter2
+│   │       │   └── ...
+│   │       ├── 2/
+│   │       │   ├── 2-1.txt         # Roll2-Chapter1
+│   │       │   ├── 2-2.txt         # Roll2-Chapter2
+│   │       │   └── ...
+│   │       └── ...
+│   └── csv-[novel_csv_name]_task-[task_id].zip   # Package .zip file
 ```
 
 ## Postprocess
 ### Count words
 ```
-python tools/count_words/count_words.py --novel_gen_task_id '2' --task_id '1'
+python tools/count_words/count_words.py --novel_csv_name '2' --task_id '1'
 ```
 
 ### Content expansion

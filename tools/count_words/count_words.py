@@ -33,7 +33,7 @@ def process_files(source_folder, output_file, filter_single_char=True):
     
     if not files:
         print(f"错误: 在路径 '{source_folder}' 下未找到任何 .txt 文件。")
-        print("请检查你的 --novel_gen_task_id 和 --task_id 是否正确，或者路径结构是否匹配。")
+        print("请检查你的 --novel_csv_name 和 --task_id 是否正确，或者路径结构是否匹配。")
         return
 
     print(f"共找到 {len(files)} 个文本文件，开始处理...")
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="统计小说生成任务的词频")
     
     # 2. 添加参数
-    parser.add_argument('--novel_gen_task_id', type=str, required=True, help='小说生成任务ID')
+    parser.add_argument('--novel_csv_name', type=str, required=True, help='小说生成任务ID')
     parser.add_argument('--task_id', type=str, required=True, help='子任务ID')
     parser.add_argument('--filter_single', action='store_true', default=True, help='是否过滤单字 (默认过滤)')
 
@@ -99,9 +99,9 @@ if __name__ == "__main__":
 
     # 4. 组装路径 (完全按照你提供的逻辑)
     # 注意：这里的相对路径是相对于你运行 python 命令时的当前目录
-    source_folder = f'./novels/{args.novel_gen_task_id}/task_{args.task_id}/content/'
-    output_file = f'./{args.novel_gen_task_id}_{args.task_id}_word_frequency.csv'
+    source_folder = f'./novels/{args.novel_csv_name}/task_{args.task_id}/content/'
+    output_file = f'./{args.novel_csv_name}_{args.task_id}_word_frequency.csv'
 
     # 5. 执行处理
-    print(f"任务 ID: {args.novel_gen_task_id}, 子任务 ID: {args.task_id}")
+    print(f"任务 ID: {args.novel_csv_name}, 子任务 ID: {args.task_id}")
     process_files(source_folder, output_file, filter_single_char=args.filter_single)
