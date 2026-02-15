@@ -224,7 +224,7 @@ class NovelGenerator:
 
 【基础信息】
 - 创意/脑洞：{task_data["novel_idea"]} (请尽情发挥想象力，不要局限于现有描述，进行发散思维)
-- 目标受众：{task_data["target_reader"]} (偏好快节奏、高爽点、有趣味)
+- 目标受众：{task_data["target_reader"]} (偏好快节奏、阅读轻松、高爽点、有趣味)
 - 结构：共{task_data["volume_num"]}卷，每卷{task_data["chapter_num"]}章，每章约{task_data["chapter_word_num"]}字
 - 备注：{task_data["note"]}
 
@@ -448,7 +448,7 @@ class NovelGenerator:
 
 【全局设定】
 - 类型：{overview.get("类型")}
-- 文风：{overview.get("文风")} + {','.join(prompts.WRITE_STYLES)}
+- 文风：{overview.get("文风")} + {','.join(prompts.NECESSARY_WRITE_STYLES)}
 - 核心创意：{overview.get("核心爽点和创意")}
 - 简介：{overview.get("小说简介")}
 

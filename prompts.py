@@ -140,7 +140,7 @@ STYLE_GUIDE_PROMPTS = {
 
    "v7": {
       "info": """
-         去掉“每一章”、“都”等字眼
+         去掉“每一章”、“都”等字眼，改为“可以适当”
       """,
       "prompt": """
 【现象级爆款写作法则 - 大神文笔版】
@@ -198,4 +198,4 @@ RANDOM_DIRECTIVE_PROMPTS = [
 PROHIBITED_WORDS = ["死寂", "全球哗然", "全球直播间", "弹幕爆炸"]
 
 # 必加文风
-WRITE_STYLES = ["阅读轻松", "搞笑", "脑洞", "无脑爽"]
+NECESSARY_WRITE_STYLES = ["阅读轻松", "搞笑", "脑洞", "无脑爽"]
