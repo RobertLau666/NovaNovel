@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from concurrent.futures import ProcessPoolExecutor
 
 # 🟢 导入核心逻辑 (确保你的核心逻辑文件名为 app_v7.py)
-from app_v7 import DeepSeekClient, DMXImageAPIGenerator, NovelGenerator, run_single_task_worker
+from app_v8 import DeepSeekClient, DMXImageAPIGenerator, NovelGenerator, run_single_task_worker
 
 # 🟢 [适配 macOS] 多进程设置
 if sys.platform == 'darwin':
