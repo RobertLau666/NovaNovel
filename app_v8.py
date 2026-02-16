@@ -220,7 +220,7 @@ class NovelGenerator:
 
     def generate_global_settings(self, task_data: Dict) -> Optional[Dict]:
         reference_novel_prompt = ""
-        reference_novel = task.get("reference_novel")
+        reference_novel = task_data.get("reference_novel")
         if reference_novel:
             reference_novel_prompt = f"""
 【核心模仿对象】
