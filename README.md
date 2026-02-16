@@ -54,14 +54,15 @@ Or you can ask [Google AI Studio](https://aistudio.google.com/) for novel genera
     4. **黄金钩子**：开篇的具体高潮画面，侧重**情绪价值**（震撼、诡异、感动）而非单纯的搞笑。
 - **write_style**: 4个以上关键词（如：群像, 智斗, 幕后流, 克苏鲁, 唯我独法, 迪化, 慢热神作等能增加厚度的词。）
 - **target_reader**: 男性/女性/通用。
+- **reference_novel**: 可参考的同类型排行榜靠前的热门小说名称。
 - **note**: 给生成器的特别指令（留空或填写如：“前期注重氛围渲染”、“主角不论何时保持优雅”）。
 - **其他数值**: volume_num(10), chapter_num(50), chapter_word_num(2000), status(0), outline_done(0), novel_gen_start_time(), novel_gen_end_time()。
 
 # Output Format:
-task_id,novel_type,novel_idea,write_style,target_reader,note,volume_num,chapter_num,chapter_word_num,status,outline_done,novel_gen_start_time,novel_gen_end_time
+task_id,novel_type,novel_idea,write_style,target_reader,reference_novel,note,volume_num,chapter_num,chapter_word_num,status,outline_done,novel_gen_start_time,novel_gen_end_time
 
 # Example Row (高发散性示例):
-1,规则怪谈,"背景：诡异入侵，全球人类被拉入副本。主角是患有“情感缺失症”的侧写师。金手指：【绝对理性视角】，能将恐怖的怪谈场景数字化、逻辑化，看到规则背后的“运行代码”，代价是每使用一次，人性情感就会淡漠一分。主线：在保持“人性”不灭的前提下，解析怪谈源头，重构世界秩序。钩子：S级副本中，队友被厉鬼吓疯，主角却面无表情地看着厉鬼，冷冷指出其逻辑漏洞：“根据规则三和规则五的冲突，你现在不存在。”厉鬼逻辑崩溃，当场消散。",规则怪谈,高智商,冷一名,无限流,推理,解密,通用,"重点描写主角在绝对理性和仅存人性之间的挣扎，逻辑链要严密",10,80,2100,0,0,,
+1,规则怪谈,"背景：诡异入侵，全球人类被拉入副本。主角是患有“情感缺失症”的侧写师。金手指：【绝对理性视角】，能将恐怖的怪谈场景数字化、逻辑化，看到规则背后的“运行代码”，代价是每使用一次，人性情感就会淡漠一分。主线：在保持“人性”不灭的前提下，解析怪谈源头，重构世界秩序。钩子：S级副本中，队友被厉鬼吓疯，主角却面无表情地看着厉鬼，冷冷指出其逻辑漏洞：“根据规则三和规则五的冲突，你现在不存在。”厉鬼逻辑崩溃，当场消散。",规则怪谈,高智商,冷一名,无限流,推理,解密,通用,主宰规则怪谈（怪谈直播间！）,"重点描写主角在绝对理性和仅存人性之间的挣扎，逻辑链要严密",10,80,2100,0,0,,
 
 现在，请生成30条数据：
 ```

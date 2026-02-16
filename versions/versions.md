@@ -69,6 +69,11 @@
 16. outline.json中加上“用户初始设定”
 17. 文风默认加上WRITE_STYLES
 
+## app_v8.py 202602161203
+1. 新增promptv8：“语言风格：极简主义”
+2. 加入“【钩子设计原则】”
+3. csv、code、README中加入“reference_novel”
+4. 加入“想象力爆发”
 
 
 # app_gradio
