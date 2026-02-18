@@ -21,7 +21,7 @@ Edit `*.csv` and put it under dir ```novel_csvs/```.
 | novel_type           | Novel Genre                      | 玄幻、都市、言情                        |
 | novel_idea           | Core Concept                     | 主角逆袭成大佬                         |
 | write_style          | Writing Style                    | 轻松幽默、热血燃爆、搞笑、中二、腹黑       |
-| target_reader        | Target Readers                   | 男性、女性                            |
+| target_reader        | Target Readers                   | 男性、女性、通用                        |
 | reference_novel      | Reference Novel                  | 主宰规则怪谈（怪谈直播间！）             |
 | note                 | Note                             | 每章结尾留悬念                         |
 | volume_num           | Number of Volumes                | 10                                   |
@@ -63,7 +63,7 @@ Or you can ask [Google AI Studio](https://aistudio.google.com/) for novel genera
 task_id,novel_type,novel_idea,write_style,target_reader,reference_novel,note,volume_num,chapter_num,chapter_word_num,status,outline_done,novel_gen_start_time,novel_gen_end_time
 
 # Example Row (高发散性示例):
-1,规则怪谈,"背景：诡异入侵，全球人类被拉入副本。主角是患有“情感缺失症”的侧写师。金手指：【绝对理性视角】，能将恐怖的怪谈场景数字化、逻辑化，看到规则背后的“运行代码”，代价是每使用一次，人性情感就会淡漠一分。主线：在保持“人性”不灭的前提下，解析怪谈源头，重构世界秩序。钩子：S级副本中，队友被厉鬼吓疯，主角却面无表情地看着厉鬼，冷冷指出其逻辑漏洞：“根据规则三和规则五的冲突，你现在不存在。”厉鬼逻辑崩溃，当场消散。",规则怪谈、高智商、冷一名、无限流、推理、解密、通用,主宰规则怪谈（怪谈直播间！）,"重点描写主角在绝对理性和仅存人性之间的挣扎，逻辑链要严密",10,80,2100,0,0,,
+1,规则怪谈,"背景：诡异入侵，全球人类被拉入副本。主角是患有“情感缺失症”的侧写师。金手指：【绝对理性视角】，能将恐怖的怪谈场景数字化、逻辑化，看到规则背后的“运行代码”，代价是每使用一次，人性情感就会淡漠一分。主线：在保持“人性”不灭的前提下，解析怪谈源头，重构世界秩序。钩子：S级副本中，队友被厉鬼吓疯，主角却面无表情地看着厉鬼，冷冷指出其逻辑漏洞：“根据规则三和规则五的冲突，你现在不存在。”厉鬼逻辑崩溃，当场消散。",规则怪谈、高智商、冷一名、无限流、推理、解密,通用,主宰规则怪谈（怪谈直播间！）,"重点描写主角在绝对理性和仅存人性之间的挣扎，逻辑链要严密",10,80,2100,0,0,,
 
 现在，请生成30条数据：
 ```
