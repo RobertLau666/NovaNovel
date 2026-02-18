@@ -458,7 +458,7 @@ class NovelGenerator:
 
 【全局设定】
 - 类型：{overview.get("类型")}
-- 文风：{overview.get("文风")},{','.join(prompts.NECESSARY_WRITE_STYLES)}
+- 文风：{overview.get("文风")}、{'、'.join(prompts.NECESSARY_WRITE_STYLES)}
 - 核心创意：{overview.get("核心爽点和创意")}
 - 简介：{overview.get("小说简介")}
 
