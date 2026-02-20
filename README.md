@@ -166,7 +166,7 @@ Use [ChatGPT](https://chatgpt.com/) to expand content, prompt is as follows:
 1. Use [豆包](https://www.doubao.com/chat/) to generate cover, '图像生成' - 'Seedream 4.5', prompt is as follows:
 ```
 ***
-这是我在小说网站上发布的小说的作品概述，帮我生成一个海报，画风是动漫的，你可以参考各大小说网站排行榜较前的小说封面风格，我的目的是大家看到封面之后，有吸引力，能点进来阅读，封面标题必须与小说标题一致，且封面尺寸为800*1066竖版，不要出现“AI生成”、“番茄小说”、“点击阅读”等之类的字眼
+这是我在小说网站上发布的小说的作品概述，帮我生成一个海报，你可以参考各大小说网站排行榜较前的小说封面风格，我的目的是大家看到封面之后，有吸引力，能点进来阅读，封面标题必须与小说标题一致，且封面尺寸为800*1066竖版，不要出现“AI生成”、“番茄小说”、“点击阅读”等之类的字眼
 ```
 2. Use [ChatGPT](https://chatgpt.com/) to remove the watermark, upload the generated cover, prompt is as follows:
 ```
