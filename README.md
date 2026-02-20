@@ -132,6 +132,23 @@ novels/
 │   └── csv-[novel_csv_name]_task-[task_id].zip   # Package .zip file
 ```
 
+## Pack
+### On Mac
+```
+source venv/bin/activate
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+pyinstaller --onefile \
+  --collect-all gradio \
+  --collect-all safehttpx \
+  --collect-all groovy \
+  --collect-all aiofiles \
+  --collect-all httpx \
+  app_gradio_v4.py
+```
+Then double-click ```app_gradio_v4``` under folder ```dist/```.
+Then open [http://127.0.0.1:7860](http://127.0.0.1:7860) or [http://localhost:7860](http://localhost:7860).
+
 ## Postprocess
 ### Count words
 ```
