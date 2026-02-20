@@ -72,6 +72,6 @@ echo ========================================
 start http://localhost:8080
 
 :: 启动 Python
-python app_gradio.py --port 8080 --share
+python app_gradio_v4.py --port 8080 --share
 
 pause

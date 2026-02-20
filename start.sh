@@ -91,7 +91,7 @@ fi
 echo -e "${BLUE}[START] 正在启动 Gradio 服务 (端口: $PORT)...${NC}"
 echo -e "${YELLOW}[WAIT] 程序加载中 (这通常需要 3-5 秒)...${NC}"
 
-python app_gradio_v3.py --port $PORT --share > /dev/null 2>&1 &
+python app_gradio_v4.py --port $PORT --share > /dev/null 2>&1 &
 SERVER_PID=$!
 
 # 循环检查端口

@@ -67,6 +67,7 @@ task_id,novel_type,novel_idea,write_style,target_reader,reference_novel,note,vol
 
 现在，请生成30条数据：
 ```
+
 ## Start
 ### Quick Start
 - Linux/macOS users:
