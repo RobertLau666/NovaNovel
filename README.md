@@ -106,7 +106,7 @@ python app.py -i 1 --gen-cover           # Only process task_id=1, use cover gen
 ```bash
 python app_gradio.py --port 8080 --share
 ```
-Then open [http://127.0.0.1:8080](http://127.0.0.1:8080) or [http://localhost:8080](http://localhost:8080). or public URL, such as ```https://d0bf92b05a8a956e5f.gradio.live```.
+Then open [http://127.0.0.1:8080](http://127.0.0.1:8080) or [http://localhost:8080](http://localhost:8080), or public URL, such as ```https://d0bf92b05a8a956e5f.gradio.live```.
 
 ![app_gradio.jpeg](./assets/app_gradio.jpeg)
 
