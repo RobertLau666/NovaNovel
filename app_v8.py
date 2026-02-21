@@ -253,11 +253,13 @@ class NovelGenerator:
 请生成小说的宏观设定，**严格**遵循以下 JSON 结构返回。请确保 "核心设定与人物" 和 "卷详细大纲" 是并列关系，不要嵌套！
 {{
   "作品概述": {{
-    "小说标题": "《取一个极具网感、吸引眼球的标题》",
+    "小说标题": "《取一个极具网感、吸引眼球、爆火潜质、语言表达清楚的标题》",
     "小说副标题": "xxx",
     "小说简介": "写一个黄金三章式的简介，突出金手指、核心矛盾和爽点，让人看一眼就想点进去",
     "类型": "{task_data["novel_type"]}",
     "文风": "{task_data["write_style"]}",
+    "目标受众": "{task_data["target_reader"]}",
+    "参考小说": "{task_data["reference_novel"]}",
     "核心爽点和创意": "xxx",
     "市场分析与亮点总结": "xxx",
     "小说卷数": {task_data["volume_num"]},
@@ -410,7 +412,7 @@ class NovelGenerator:
             # --- A. 构建“承上启下”的连接信息 ---
             previous_context = ""
             if start_chap == 1:
-                previous_context = "【当前状态】这是本卷的开篇，请根据本卷核心冲突，设计一个引人入胜的切入点（黄金三秒法则）。"
+                previous_context = "【当前状态】这是本卷的开篇，请根据本卷核心冲突，设计一个引人入胜的切入点，句子简短易读，内容十分吸引人继续读下去（黄金三秒法则）。"
             else:
                 # 获取上一批次最后一章的信息
                 prev_chap_num = start_chap - 1
@@ -925,7 +927,7 @@ class NovelGenerator:
         is_first_chapter = (volume == 1 and chapter == 1)
         # 🟢 [优化] 黄金三章特化逻辑
         # start_requirement = "请注意：这是全书第一章！第一段话必须是“黄金三秒”，直接抛出巨大的悬念、冲突或极其荒谬的场景，死死抓住读者眼球！" if is_first_chapter else "开头不要废话，紧接上一章结尾或直接切入本章核心事件。"
-        start_requirement = "开头不要废话，紧接上一章结尾或直接切入本章核心事件。"
+        start_requirement = "开头不要废话，紧接上一章结尾或直接切入本章核心事件。句子简短易读，内容十分吸引人继续读下去。"
         if volume == 1:
             if chapter == 1:
                 start_requirement = """
