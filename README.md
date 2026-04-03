@@ -6,10 +6,10 @@
 Create ```.env``` in project root dir.
 ```
 # Use [DEEPSEEK](https://platform.deepseek.com/usage) to generate novel content, required
-DEEPSEEK_API_KEY=
+DEEPSEEK_API_KEY=[Required]
 
 # Use [DMX](https://www.dmxapi.com/console) to generate novel cover, optional
-DMX_API_KEY=
+DMX_API_KEY=[Optional]
 ```
 
 ## Set novel tasks
@@ -80,11 +80,19 @@ task_id,novel_type,novel_idea,write_style,target_reader,reference_novel,note,vol
 ### Manual Start
 #### Install
 ```bash
-# 1. Clone repository
+# Install conda
+wget https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Linux-x86_64.sh
+bash Anaconda3-2024.10-1-Linux-x86_64.sh
+source ~/.bashrc
+
+# Change user from 'admin' to 'root'
+sudo -i
+
+# Clone repository
 git clone https://github.com/RobertLau666/AINovel.git
 cd AINovel
 
-# 2. Install venv
+# Create virtual environment
 conda create -n ainovel python=3.12
 conda activate ainovel
 pip install -r requirements.txt
@@ -124,7 +132,7 @@ novels/
 │   │       │   ├── 1-1.txt         # Roll1-Chapter1
 │   │       │   ├── 1-2.txt         # Roll1-Chapter2
 │   │       │   └── ...
-│   │       ├── 2/
+│   │       ├── 2/                  # Roll2
 │   │       │   ├── 2-1.txt         # Roll2-Chapter1
 │   │       │   ├── 2-2.txt         # Roll2-Chapter2
 │   │       │   └── ...
