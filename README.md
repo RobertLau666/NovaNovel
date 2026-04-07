@@ -3,7 +3,7 @@
 **AINovel** is an automatic batch novels generation system based on the DeepSeek API, supporting batch tasks and resume from breakpoints.
 
 ## Set API Key
-Create a file named ```.env``` in project root dir.
+Create a ```.env``` file in project root dir.
 ```
 # Use [DEEPSEEK](https://platform.deepseek.com/usage) to generate novel content, required
 DEEPSEEK_API_KEY=[Required]
