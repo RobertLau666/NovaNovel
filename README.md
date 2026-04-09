@@ -143,7 +143,7 @@ novels/
 
 ## Pack
 ### On Mac
-```
+```bash
 source venv/bin/activate
 pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
@@ -160,7 +160,7 @@ Then open [http://127.0.0.1:7860](http://127.0.0.1:7860) or [http://localhost:78
 
 ## Postprocess
 ### Count words
-```
+```bash
 python tools/count_words/count_words.py --novel_csv_name '2' --task_id '1'
 ```
 
