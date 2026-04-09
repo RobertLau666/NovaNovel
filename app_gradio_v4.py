@@ -1,17 +1,17 @@
-import gradio as gr
 import os
-import shutil
-import pandas as pd
-import time
-import threading
-import multiprocessing
 import sys
-import glob       # 🟢 [补全]
-import argparse   # 🟢 [补全]
+import glob
+import time
+import shutil
+import argparse
+import threading
+import gradio as gr
+import pandas as pd
+import multiprocessing
 from dotenv import load_dotenv
 from concurrent.futures import ProcessPoolExecutor
 
-# 🟢 导入核心逻辑 (确保你的核心逻辑文件名为 app_v7.py)
+# 🟢 导入核心逻辑 (确保你的核心逻辑文件名为 app_v8.py)
 from app_v8 import DeepSeekClient, DMXImageAPIGenerator, NovelGenerator, run_single_task_worker
 
 # 🟢 [适配 macOS] 多进程设置
