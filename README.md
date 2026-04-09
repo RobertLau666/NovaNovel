@@ -13,7 +13,7 @@ DMX_API_KEY=[Optional]
 ```
 
 ## Set novel tasks
-Edit `*.csv` and put it under dir ```novel_csvs/```.
+1. Creat a `*.csv` file including novel generate tasks.
 
 | Field                | Description                      | Example                              |
 |----------------------|----------------------------------|--------------------------------------|
@@ -32,7 +32,7 @@ Edit `*.csv` and put it under dir ```novel_csvs/```.
 | novel_gen_start_time | Novel Generation Start Time      | Auto-filled                          |
 | novel_gen_end_time   | Novel Generation End Time        | Auto-filled                          |
 
-Or you can ask [Google AI Studio](https://aistudio.google.com/) for novel generate tasks, prompt is as follows:
+Regarding the content inside, you can manually fill it in or ask [Google AI Studio](https://aistudio.google.com/), prompt is as follows:
 ```
 # Role: 顶级网文架构师 & 爆款选题策划人
 # Profile:
@@ -68,6 +68,8 @@ task_id,novel_type,novel_idea,write_style,target_reader,reference_novel,note,vol
 现在，请生成30条数据：
 ```
 Then copy the generated content into a text file and save it as ```.csv``` file.
+
+2. Put the ```.csv``` file under dir ```novel_csvs/```.
 
 ## Start
 ### Quick Start
