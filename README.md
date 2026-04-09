@@ -1,6 +1,6 @@
-# AINovel
+# NovaNovel
 
-**AINovel** is an automatic batch novels generation system based on the DeepSeek API, supporting batch tasks and resume from breakpoints.
+**NovaNovel** is an automatic batch novels generation system based on the DeepSeek API, supporting batch tasks and resume from breakpoints.
 
 ## Set API Key
 Create a ```.env``` file in project root dir.
@@ -92,12 +92,12 @@ source ~/.bashrc
 sudo -i
 
 # Clone repository
-git clone https://github.com/RobertLau666/AINovel.git
-cd AINovel
+git clone https://github.com/RobertLau666/NovaNovel.git
+cd NovaNovel
 
 # Create virtual environment
-conda create -n ainovel python=3.12
-conda activate ainovel
+conda create -n novanovel python=3.12
+conda activate novanovel
 pip install -r requirements.txt
 ```
 
