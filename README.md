@@ -115,7 +115,7 @@ python app.py -i 1 --gen-cover           # Only process task_id=1, use cover gen
 ```bash
 python app_gradio.py --port 8080 --share
 ```
-Then open [http://127.0.0.1:8080](http://127.0.0.1:8080) or [http://localhost:8080](http://localhost:8080), or public URL.
+Then open the local URL http://127.0.0.1:8080 or http://localhost:8080 in your browser, or use the public URL if accessing remotely.
 
 ![app_gradio.jpeg](./assets/app_gradio.jpeg)
 
@@ -156,12 +156,12 @@ pyinstaller --onefile \
   app_gradio.py
 ```
 Then double-click ```app_gradio``` under folder ```dist/```.
-Then open [http://127.0.0.1:7860](http://127.0.0.1:7860) or [http://localhost:7860](http://localhost:7860).
+Then open the local URL http://127.0.0.1:8080 or http://localhost:8080 in your browser, or use the public URL if accessing remotely.
 
-## Postprocess
+## Tools
 ### Count words
 ```bash
-python tools/count_words.py --novel_csv_name '2' --task_id '1'
+python tools/count_words.py --novel_csv_name 'test' --task_id '29'
 ```
 
 ### Content expansion

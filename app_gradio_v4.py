@@ -350,7 +350,7 @@ if __name__ == "__main__":
                     id_checklist = gr.CheckboxGroup(label="列表勾选", choices=[])
                     id_textbox = gr.Textbox(label="文本强制指定", placeholder="例: 1, 3-5 (可强制重跑)")
 
-        # Row 3: Run & Stop 
+        # Row 3: Run & Stop
         with gr.Row():
             run_btn = gr.Button("🚀 开始/继续生成", variant="primary", scale=3)
             stop_btn = gr.Button("🛑 终止生成", variant="stop", scale=1)
