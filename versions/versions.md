@@ -74,6 +74,8 @@
 2. 加入“【钩子设计原则】”
 3. csv、code、README中加入“reference_novel”
 4. 加入“想象力爆发”
+5. 新增promptv9：“番茄爆款/短剧化/癫学/极致情绪驱动版”
+
 
 
 # app_gradio

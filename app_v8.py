@@ -156,7 +156,7 @@ class NovelGenerator:
         self.context_prev_vol_num = 10  # 往前回顾多少卷
         self.context_prev_chap_num = 3  # 往前回顾多少章
 
-        self.style_guide_prompt = prompts.STYLE_GUIDE_PROMPTS['v8']['prompt']
+        self.style_guide_prompt = prompts.STYLE_GUIDE_PROMPTS['v9']['prompt']
 
         # 初始化 Logger 配置 (保持原样，或者放在 main 中也可，这里保留以防万一)
         logging.basicConfig(
